@@ -267,7 +267,7 @@ class Production:
         self.rhs.dump("  ")
 
 
-def analyze(g):
+def analyze(g: list[Production]) -> State:
     state = State()
     for p in g:
         assert p.lhs not in state.nonterms

@@ -102,6 +102,7 @@ class Parser:
 
     def _parse(self):
         self.{g[0].lhs}()
+        self.scanner.match("EOF")
 """
 
     print(prologue)

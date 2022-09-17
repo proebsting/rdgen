@@ -1,5 +1,5 @@
 program  :
-     { func_decl } EOF .
+     { func_decl } .
 
 var_decl :
     "var" ID ":" type .
@@ -69,9 +69,7 @@ factor :
     | designator
     .
 
-value : INT | "true" | "false" | array_constructor .
-
-array_constructor : "{" [ value { "," value } ] "}" .
+value : INT | "true" | "false" .
 
 designator :
     ID [ arguments ] { selector } .
