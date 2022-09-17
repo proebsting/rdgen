@@ -1,6 +1,5 @@
 import typing
 import string
-import pprint
 
 punctuation = {".", ":", "[", "]", "(", ")", "{", "}", "|"}
 
