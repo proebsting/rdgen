@@ -1,0 +1,10 @@
+grammar: production { production } .
+production: ID ":" alternation "." .
+alternation: sequence { "|" sequence } .
+sequence: term { term } .
+term: "(" alternation ")"
+    | "{" alternation "}"
+    | "[" alternation "]"
+    | ID
+    | STR
+    .

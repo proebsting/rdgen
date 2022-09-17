@@ -1,0 +1,82 @@
+program  :
+     { func_decl } EOF .
+
+var_decl :
+    "var" ID ":" type .
+
+func_decl :
+    "func" ID "(" [ ID ":" type { "," ID ":" type } ] ")" [ ":" type ] compound_stmt .
+
+type :
+    "[" [ INT ] "]" type | "int" | "bool" .
+
+assign_stmt :
+    designator "=" expr .
+
+compound_stmt :
+    "{" { var_decl } { statement } "}" .
+
+while_stmt :
+    "while" expr compound_stmt .
+
+if_stmt :
+    "if" expr compound_stmt [ "else" compound_stmt ] .
+
+call_stmt :
+    "call" call .
+
+call :  
+    ID "(" [ expr { "," expr } ] ")" .
+
+
+return_stmt :
+    "return" [ expr ] .
+
+statement :
+    assign_stmt
+    | while_stmt
+    | if_stmt
+    | call_stmt
+    | return_stmt
+    | compound_stmt
+    .
+
+relation : "<" | "<=" | ">" | ">=" | "==" | "!=" .
+
+addop : "+" | "-" .
+
+mulop : "*" | "/" .
+
+expr :
+    expr1 { "or" expr1 } .
+
+expr1 :
+    expr2 { "and" expr2 } .
+
+expr2 :
+    simple_expr [ relation simple_expr ] .
+
+simple_expr :
+    term { addop term } .
+
+term :
+    factor { mulop factor } .
+
+factor :
+    "(" expr ")"
+    | value
+    | "-" factor
+    | designator
+    .
+
+value : INT | "true" | "false" | array_constructor .
+
+array_constructor : "{" [ value { "," value } ] "}" .
+
+designator :
+    ID [ arguments ] { selector } .
+
+arguments : "("  [ expr { "," expr }  ]  ")" .
+
+selector :
+    "[" expr "]" .
