@@ -18,7 +18,7 @@ def alts(self, indent: str, state: State) -> list[str]:
         ret += [f"{indent}{cond} self.scanner.peek().kind in {set_repr(v.predict)}:"]
         ret += emit(v, indent + self.indentation, state)
     ret += [f"{indent}else:"]
-    ret += [f"{indent+self.indentation}self.error('syntax error')"]
+    ret += [f"{indent+self.indentation}self._error('syntax error')"]
     return ret
 
 
@@ -90,18 +90,20 @@ def emit(e: Expr, indent: str, state: State) -> list[str]:
         raise Exception(f"unknown expr: {e}")
 
 
-prologue = """
+def emit_parser(g: list[Production], state: State):
+    prologue = f"""
 from scanner import Scanner
 class Parser:
     def __init__(self, scanner: Scanner):
         self.scanner = scanner
 
-    def error(self, msg: str):
+    def _error(self, msg: str):
         raise Exception(msg + " at " + str(self.scanner.peek()))
+
+    def _parse(self):
+        self.{g[0].lhs}()
 """
 
-
-def emit_parser(g: list[Production], state: State):
     print(prologue)
 
     for p in g:

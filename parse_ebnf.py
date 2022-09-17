@@ -7,8 +7,11 @@ class Parser:
     def __init__(self, scanner: Scanner):
         self.scanner = scanner
 
-    def error(self, msg: str):
+    def _error(self, msg: str):
         raise Exception(msg + " at " + str(self.scanner.peek()))
+
+    def _parse(self):
+        self.grammar()
 
     # grammar -> production { production }
     def grammar(self) -> list[Production]:
@@ -64,7 +67,7 @@ class Parser:
         elif self.scanner.peek().kind in {"STR"}:
             v = Sym(self.scanner.match("STR").value)
         else:
-            self.error("syntax error")
+            self._error("syntax error")
             assert False
         return v
 
