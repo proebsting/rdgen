@@ -12,6 +12,7 @@ class Parser:
 
     def _parse(self):
         self.grammar()
+        self.scanner.match("EOF")
 
     # grammar -> production { production }
     def grammar(self) -> list[Production]:

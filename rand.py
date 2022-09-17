@@ -14,14 +14,21 @@ def main() -> None:
     p = Parser(lexer)
     g: list[Production] = p.grammar()
     state = analyze(g)
-    out = gen_random.gen(g[0].rhs, g, state, args.limit, args.substitutions)
-    print(out)
+    outputs: set[str] = set()
+    while len(outputs) < args.quantity:
+        out = gen_random.gen(g[0].rhs, g, state, args.limit, args.substitutions)
+        if out not in outputs:
+            outputs.add(out)
+            print(out)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("substitutions", nargs="*", help="substitutions from:to")
     parser.add_argument("--limit", type=int, help="limit on number of iterations")
+    parser.add_argument(
+        "--quantity", type=int, default=1, help="quantity of output needed"
+    )
     return parser.parse_args()
 
 
