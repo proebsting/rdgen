@@ -39,8 +39,6 @@ def opt(self: Opt, productions: list[Production], state: State):
 # sym
 def sym(self: Sym, productions: list[Production], state: State) -> list[str]:
     if self.isterminal(state):
-        global count
-        count += 1
         if self.value[0] == '"':
             return [self.value[1:-1]]
         else:
@@ -53,7 +51,8 @@ def sym(self: Sym, productions: list[Production], state: State) -> list[str]:
 
 
 def gen_random(e: Expr, productions: list[Production], state) -> list[str]:
-
+    global count
+    count += 1
     if isinstance(e, Alts):
         return alts(e, productions, state)
     elif isinstance(e, Seq):
