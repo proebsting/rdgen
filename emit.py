@@ -1,70 +1,8 @@
 from collections import Counter
+from typing import TextIO
+from sys import stderr
 
 from grammar import Alts, Seq, Rep, Opt, Sym, Production, State, Expr
-
-
-# alts
-def alts(self, indent: str, state: State) -> list[str]:
-    counts = Counter(s for v in self.vals for s in v.predict)
-    ret: list[str] = []
-    for i, v in enumerate(self.vals):
-        ambiguous = {s for s in v.predict if counts[s] > 1}
-        if ambiguous:
-            ret.append(f"{indent}# AMBIGUOUS LOOKAHEADS: {set_repr(ambiguous)}:")
-        if i == 0:
-            cond = "if"
-        else:
-            cond = "elif"
-        ret += [f"{indent}{cond} self.scanner.peek().kind in {set_repr(v.predict)}:"]
-        ret += emit(v, indent + self.indentation, state)
-    ret += [f"{indent}else:"]
-    ret += [f"{indent+self.indentation}self._error('syntax error')"]
-    return ret
-
-
-# seq
-def seq(self, indent: str, state: State) -> list[str]:
-    ret = emit(self.car, indent, state) + emit(self.cdr, indent, state)
-    return ret
-
-
-# rep
-def rep(self, indent: str, state: State) -> list[str]:
-    indented = indent + self.indentation
-    ret = []
-    if self.val.nullable:
-        ret.append(f"{indent}# AMBIGUOUS: Nullable Rep")
-    ret.append(f"{indent}while self.scanner.peek().kind in {set_repr(self.val.first)}:")
-    ret += emit(self.val, indented, state)
-    return ret
-
-
-# opt
-def opt(self, indent: str, state: State):
-    indented = indent + self.indentation
-    ret = []
-    if self.val.nullable:
-        ret.append(f"{indent}# AMBIGUOUS: Nullable Rep")
-    ret.append(f"{indent}if self.scanner.peek().kind in {set_repr(self.val.first)}:")
-    ret += emit(self.val, indented, state)
-    return ret
-
-
-# sym
-def sym(self, indent: str, state: State) -> list[str]:
-    if self.isterminal(state):
-        return [f"{indent}self.scanner.match({term_repr(self.value)})"]
-    else:
-        return [f"{indent}self.{self.value}()"]
-
-
-# prod
-def prod(self, indent: str, state: State):
-    indented = indent * 2
-    return [
-        f"{indent}# {self.lhs} -> {self.rhs.__repr__()}",
-        f"{indent}def {self.lhs}(self):",
-    ] + emit(self.rhs, indented, state)
 
 
 def term_repr(s: str) -> str:
@@ -75,23 +13,90 @@ def set_repr(s: set[str]) -> str:
     return "{" + ", ".join(term_repr(w) for w in sorted(s)) + "}"
 
 
-def emit(e: Expr, indent: str, state: State) -> list[str]:
-    if isinstance(e, Alts):
-        return alts(e, indent, state)
-    elif isinstance(e, Seq):
-        return seq(e, indent, state)
-    elif isinstance(e, Rep):
-        return rep(e, indent, state)
-    elif isinstance(e, Opt):
-        return opt(e, indent, state)
-    elif isinstance(e, Sym):
-        return sym(e, indent, state)
-    else:
-        raise Exception(f"unknown expr: {e}")
+class Emitter:
+    def __init__(
+        self, grammar: list[Production], state: State, file: TextIO, verbose: bool
+    ):
+        self.grammar = grammar
+        self.state = state
+        self.file = file
+        self.verbose = verbose
 
+    def alts(self, a: Alts, indent: str):
+        counts = Counter(s for v in a.vals for s in v.predict)
+        for i, v in enumerate(a.vals):
+            ambiguous = {s for s in v.predict if counts[s] > 1}
+            if ambiguous:
+                self.file.write(
+                    f"{indent}# AMBIGUOUS LOOKAHEADS: {set_repr(ambiguous)}:\n"
+                )
+            if i == 0:
+                cond = "if"
+            else:
+                cond = "elif"
+            self.file.write(
+                f"{indent}{cond} self.scanner.peek().kind in {set_repr(v.predict)}:\n"
+            )
+            self.emit(v, indent + a.indentation)
+        self.file.write(f"{indent}else:\n")
+        self.file.write(f"{indent+a.indentation}self._error('syntax error')\n")
 
-def emit_parser(g: list[Production], state: State):
-    prologue = f"""
+    def seq(self, s: Seq, indent: str):
+        self.emit(s.car, indent)
+        self.emit(s.cdr, indent)
+
+    def rep(self, r: Rep, indent: str):
+        indented = indent + r.indentation
+        inter = r.val.first.intersection(r.follow)
+        if inter:
+            self.file.write(f"{indent}# AMBIGUOUS: with lookahead {set_repr(inter)}\n")
+        if r.val.nullable:
+            self.file.write(f"{indent}# AMBIGUOUS: Nullable Repetition\n")
+        self.file.write(
+            f"{indent}while self.scanner.peek().kind in {set_repr(r.val.first)}:\n"
+        )
+        self.emit(r.val, indented)
+
+    def opt(self, o: Opt, indent: str):
+        indented = indent + o.indentation
+        inter = o.val.first.intersection(o.follow)
+        if inter:
+            self.file.write(f"{indent}# AMBIGUOUS: with lookahead {set_repr(inter)}\n")
+        if o.val.nullable:
+            self.file.write(f"{indent}# AMBIGUOUS: Nullable Optional\n")
+        self.file.write(
+            f"{indent}if self.scanner.peek().kind in {set_repr(o.val.first)}:\n"
+        )
+        self.emit(o.val, indented)
+
+    def sym(self, s: Sym, indent: str):
+        if s.isterminal(self.state):
+            self.file.write(f"{indent}self.scanner.match({term_repr(s.value)})\n")
+        else:
+            self.file.write(f"{indent}self.{s.value}()\n")
+
+    def prod(self, p: Production, indent: str):
+        indented = indent * 2
+        self.file.write(f"{indent}# {p.lhs} -> {p.rhs.__repr__()}\n")
+        self.file.write(f"{indent}def {p.lhs}(self):\n")
+        self.emit(p.rhs, indented)
+
+    def emit(self, e: Expr, indent: str):
+        if isinstance(e, Alts):
+            self.alts(e, indent)
+        elif isinstance(e, Seq):
+            self.seq(e, indent)
+        elif isinstance(e, Rep):
+            self.rep(e, indent)
+        elif isinstance(e, Opt):
+            self.opt(e, indent)
+        elif isinstance(e, Sym):
+            self.sym(e, indent)
+        else:
+            raise Exception(f"unknown expr: {e}")
+
+    def emit_parser(self):
+        prologue = f"""
 from scanner import Scanner
 class Parser:
     def __init__(self, scanner: Scanner):
@@ -101,15 +106,15 @@ class Parser:
         raise Exception(msg + " at " + str(self.scanner.peek()))
 
     def _parse(self):
-        self.{g[0].lhs}()
+        self.{self.grammar[0].lhs}()
         self.scanner.match("EOF")
 """
 
-    print(prologue)
+        self.file.write(prologue)
 
-    for p in g:
-        for line in prod(p, "    ", state):
-            print(line)
+        for p in self.grammar:
+            self.prod(p, "    ")
 
-    for t in sorted(state.terms):
-        print("# Token:", t)
+        if self.verbose:
+            for t in sorted(self.state.terms):
+                self.file.write(f"# Token: {t}\n")

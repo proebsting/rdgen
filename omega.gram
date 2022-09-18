@@ -14,7 +14,7 @@ assign_stmt :
     designator "=" expr .
 
 compound_stmt :
-    "{" { var_decl } { statement } "}" .
+    "{" { var_decl } { statement } [ return_stmt ] "}" .
 
 while_stmt :
     "while" expr compound_stmt .
@@ -37,7 +37,6 @@ statement :
     | while_stmt
     | if_stmt
     | call_stmt
-    | return_stmt
     | compound_stmt
     .
 

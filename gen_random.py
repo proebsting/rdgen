@@ -39,6 +39,8 @@ def opt(self: Opt, productions: list[Production], state: State):
 # sym
 def sym(self: Sym, productions: list[Production], state: State) -> list[str]:
     if self.isterminal(state):
+        global count
+        count += 1
         if self.value[0] == '"':
             return [self.value[1:-1]]
         else:
@@ -51,8 +53,7 @@ def sym(self: Sym, productions: list[Production], state: State) -> list[str]:
 
 
 def gen_random(e: Expr, productions: list[Production], state) -> list[str]:
-    global count
-    count += 1
+
     if isinstance(e, Alts):
         return alts(e, productions, state)
     elif isinstance(e, Seq):
@@ -67,15 +68,22 @@ def gen_random(e: Expr, productions: list[Production], state) -> list[str]:
         raise Exception(f"unknown expr: {e}")
 
 
-def gen(
-    e: Expr, productions: list[Production], state, max: int, subs: list[str]
-) -> str:
+def gen(e: Expr, productions: list[Production], state, max: int) -> str:
     global count, maximum
     count = 0
     maximum = max
     L = gen_random(e, productions, state)
     s = " ".join(x.strip() for x in L)
-    for sub in subs:
-        before, after = sub.split(":")
-        s = s.replace(before, after)
     return s
+
+
+def gen_examples(
+    grammar: list[Production], state: State, quantity: int, limit: int
+) -> list[str]:
+    outputs: set[str] = set()
+    while len(outputs) < quantity:
+        out = gen(grammar[0].rhs, grammar, state, limit)
+        if out not in outputs:
+            outputs.add(out)
+    L = list(outputs)
+    return L
