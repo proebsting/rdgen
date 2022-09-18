@@ -33,18 +33,6 @@ Note the following:
 5. Only one production per nonterminal is allowed.
 6. All right-hand sides must be non-empty.
 
-```
-$ python3 main.py -h
-usage: main.py [-h] {create,examples} ...
-
-positional arguments:
-  {create,examples}
-    create           create a parser
-    examples         create a JSON file with example sentences
-
-options:
-  -h, --help         show this help message and exit
-```
 
 ## Generating a Parser
 
