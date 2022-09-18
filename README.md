@@ -6,6 +6,33 @@ The interface of the generated parser and the expected interface are those dicta
 
 The application can generate a parser, or it can generate random sentences in the language of a grammar.
 
+## Input Specification
+
+This is the EBNF grammar for the EBNF grammar to be processed by rdgen:
+
+```
+grammar: production { production } .
+production: ID ":" alternation "." .
+alternation: sequence { "|" sequence } .
+sequence: term { term } .
+term: "(" alternation ")"
+    | "{" alternation "}"
+    | "[" alternation "]"
+    | ID
+    | STR
+    .
+```
+
+Note the following:
+1. A grammar must have at least one production.
+2. The nonterminal of the first production is the start symbol.
+3. Any symbol that isn't a nonterminal is treated as a terminal.
+   * identifier symbols begin with a letter and then contain letters, digits, and underscores
+   * string symbols begin and end with a double quote and contain any character except a double quote and newline.
+4. `EOF` is not part of the grammar.
+5. Only one production per nonterminal is allowed.
+6. All right-hand sides must be non-empty.
+
 ```
 $ python3 main.py -h
 usage: main.py [-h] {create,examples} ...
@@ -32,7 +59,7 @@ options:
   --verbose        verbose output
 ```
 
-If the grammar has LL(1) conflicts, they will be noted in the generated Python file with the word, `AMBIGUOUS`.
+If the grammar has LL(1) conflicts, they will be noted in the generated Python file with the word, "`AMBIGUOUS`".
 
 ## Generating Example Sentences
 
