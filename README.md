@@ -2,7 +2,7 @@
 
 This is a parser generator for LL(1) EBNF grammars. It generates a predictive recursive descent parser in Python 3.10.
 
-The interface of the generated parser and the expected interface are those dictated by CSC 453 at the University of Arizona when taught by Todd Proebsting.
+The interface of the generated parser and the expected interface are those dictated by CSC 453 during Fall 2022.
 
 The application can generate a parser, or it can generate random sentences in the language of a grammar.
 
