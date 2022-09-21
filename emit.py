@@ -21,6 +21,7 @@ class Emitter:
         self.state = state
         self.file = file
         self.verbose = verbose
+        self.prefix = "_"
 
     def alts(self, a: Alts, indent: str):
         counts = Counter(s for v in a.vals for s in v.predict)
@@ -39,7 +40,7 @@ class Emitter:
             )
             self.emit(v, indent + a.indentation)
         self.file.write(f"{indent}else:\n")
-        self.file.write(f"{indent+a.indentation}self._error('syntax error')\n")
+        self.file.write(f"{indent+a.indentation}self.error('syntax error')\n")
 
     def seq(self, s: Seq, indent: str):
         self.emit(s.car, indent)
@@ -73,12 +74,12 @@ class Emitter:
         if s.isterminal(self.state):
             self.file.write(f"{indent}self.scanner.match({term_repr(s.value)})\n")
         else:
-            self.file.write(f"{indent}self.{s.value}()\n")
+            self.file.write(f"{indent}self.{self.prefix}{s.value}()\n")
 
     def prod(self, p: Production, indent: str):
         indented = indent * 2
         self.file.write(f"{indent}# {p.lhs} -> {p.rhs.__repr__()}\n")
-        self.file.write(f"{indent}def {p.lhs}(self):\n")
+        self.file.write(f"{indent}def {self.prefix}{p.lhs}(self):\n")
         self.emit(p.rhs, indented)
 
     def emit(self, e: Expr, indent: str):
@@ -102,11 +103,11 @@ class Parser:
     def __init__(self, scanner: Scanner):
         self.scanner = scanner
 
-    def _error(self, msg: str):
+    def error(self, msg: str):
         raise Exception(msg + " at " + str(self.scanner.peek()))
 
-    def _parse(self):
-        self.{self.grammar[0].lhs}()
+    def parse(self):
+        self.{self.prefix}{self.grammar[0].lhs}()
         self.scanner.match("EOF")
 """
 

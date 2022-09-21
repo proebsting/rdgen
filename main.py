@@ -5,6 +5,7 @@ import argparse
 from grammar import Production, analyze
 from parse_ebnf import Parser
 import gen_random
+import ascending
 import scanner
 import emit
 
@@ -33,20 +34,28 @@ def create(args) -> None:
         emitter.emit_parser()
 
 
-def examples(args) -> None:
+def gen_examples(ns, args):
     if args.input:
         with open(args.input, "r") as f:
             input = f.read()
     else:
         input = sys.stdin.read()
     g, state = process_grammar(input)
-    L = gen_random.gen_examples(g, state, args.quantity, args.limit)
+    L = ns.gen_examples(g, state, args.quantity, args.limit)
     js = json.dumps(L, indent=2) + "\n"
     if args.output:
         with open(args.output, "w") as f:
             f.write(js)
     else:
         sys.stdout.write(js)
+
+
+def examples(args) -> None:
+    gen_examples(gen_random, args)
+
+
+def shortest(args) -> None:
+    gen_examples(ascending, args)
 
 
 def main():
@@ -56,6 +65,8 @@ def main():
             create(args)
         case "examples":
             examples(args)
+        case "shortest":
+            shortest(args)
 
 
 def parse_args():
@@ -77,6 +88,19 @@ def parse_args():
     )
     examples.add_argument(
         "--limit", type=int, default=100, help="limit on number of iterations"
+    )
+
+    shortest = subparsers.add_parser(
+        "shortest",
+        help="create a JSON file with example sentences, starting with the shortest",
+    )
+    shortest.add_argument("--input", type=str, help="input file")
+    shortest.add_argument("--output", type=str, help="output file")
+    shortest.add_argument(
+        "--quantity", type=int, default=1, help="quantity of output needed"
+    )
+    shortest.add_argument(
+        "--limit", type=int, default=100, help="limit length of sentences"
     )
 
     return parser.parse_args()
