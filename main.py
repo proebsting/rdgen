@@ -28,10 +28,10 @@ def create(args) -> None:
     if args.output:
         with open(args.output, "w") as f:
             emitter = emit.Emitter(g, state, f, args.verbose)
-            emitter.emit_parser()
+            emitter.emit_parser(state)
     else:
         emitter = emit.Emitter(g, state, sys.stdout, args.verbose)
-        emitter.emit_parser()
+        emitter.emit_parser(state)
 
 
 def gen_examples(ns, args):
@@ -76,7 +76,9 @@ def parse_args():
     create = subparsers.add_parser("create", help="create a parser")
     create.add_argument("--input", type=str, help="input file")
     create.add_argument("--output", type=str, help="output file")
-    create.add_argument("--verbose", action="store_true", help="verbose output")
+    create.add_argument(
+        "--verbose", action="store_true", help="verbose output"
+    )
 
     examples = subparsers.add_parser(
         "examples", help="create a JSON file with example sentences"

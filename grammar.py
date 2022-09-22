@@ -4,9 +4,15 @@ import sys
 
 
 class State:
-    nullable: collections.defaultdict[str, bool] = collections.defaultdict(bool)
-    first: collections.defaultdict[str, typing.Set[str]] = collections.defaultdict(set)
-    follow: collections.defaultdict[str, typing.Set[str]] = collections.defaultdict(set)
+    nullable: collections.defaultdict[str, bool] = collections.defaultdict(
+        bool
+    )
+    first: collections.defaultdict[
+        str, typing.Set[str]
+    ] = collections.defaultdict(set)
+    follow: collections.defaultdict[
+        str, typing.Set[str]
+    ] = collections.defaultdict(set)
     nonterms: typing.Set[str] = set()
     terms: typing.Set[str] = set()
     changed: bool = False
@@ -41,10 +47,8 @@ class Expr:
     def dump(self, indent):
         assert False, "Expr.dump() not implemented"
 
-    def dump0(self, indent, name):
-        print(
-            f"{indent}{name}: nullable: {self.nullable} first: {self.first} follow: {self.follow} predict: {self.predict}"
-        )
+    def dump0(self, indent, name) -> str:
+        return f"{indent}{name}: nullable: {self.nullable} first: {self.first} follow: {self.follow} predict: {self.predict}"
 
     def dump_flat(self, indent):
         if isinstance(self, Seq):
@@ -128,7 +132,7 @@ class Seq(Expr):
         self.cdr.compute_first(state)
         prev = self.first
         if self.car.nullable:
-            self.first = self.first | self.cdr.first
+            self.first = self.car.first | self.cdr.first
         else:
             self.first = self.car.first.copy()
         state.changed = state.changed or prev != self.first
@@ -214,6 +218,7 @@ class Rep(Expr):
     def compute_first(self, state: State):
         self.val.compute_first(state)
         state.changed = state.changed or self.first != self.val.first
+        assert self.first.issubset(self.val.first)
         self.first = self.val.first.copy()
 
     def compute_follow(self, follow: set[str], state: State):
@@ -283,7 +288,9 @@ def analyze(g: list[Production]) -> State:
         state.changed = False
         for p in g:
             p.rhs.compute_nullable(state)
-            state.changed = state.changed or state.nullable[p.lhs] != p.rhs.nullable
+            state.changed = (
+                state.changed or state.nullable[p.lhs] != p.rhs.nullable
+            )
             state.nullable[p.lhs] = p.rhs.nullable
 
     state.changed = True
