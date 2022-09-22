@@ -78,6 +78,7 @@ class Alts(Expr):
         self.first = union
 
     def compute_follow(self, follow: set[str], state: State):
+        assert self.follow.issubset(follow)
         state.changed = state.changed or self.follow != follow
         self.follow = follow.copy()
         for v in self.vals:
@@ -133,13 +134,14 @@ class Seq(Expr):
         state.changed = state.changed or prev != self.first
 
     def compute_follow(self, follow: set[str], state: State):
+        state.changed = state.changed or self.follow != follow
+        assert self.follow.issubset(follow)
         self.cdr.compute_follow(follow, state)
         if self.cdr.nullable:
             f = follow | self.cdr.first
             self.car.compute_follow(f, state)
         else:
             self.car.compute_follow(self.cdr.first, state)
-        state.changed = state.changed or self.follow != follow
         self.follow = follow.copy()
 
     def compute_predict(self, state: State):
@@ -185,6 +187,7 @@ class Sym(Expr):
 
     def compute_follow(self, follow: set[str], state: State):
         state.changed = state.changed or self.follow != follow
+        assert self.follow.issubset(follow)
         self.follow = follow.copy()
         nt_follow = state.follow[self.value] | follow
         state.changed = state.changed or state.follow[self.value] != nt_follow
@@ -214,6 +217,7 @@ class Rep(Expr):
         self.first = self.val.first.copy()
 
     def compute_follow(self, follow: set[str], state: State):
+        assert self.follow.issubset(follow)
         self.val.compute_follow(follow | self.val.first, state)
         state.changed = state.changed or self.follow != follow
         self.follow = follow.copy()
@@ -244,6 +248,7 @@ class Opt(Expr):
         self.first = self.val.first.copy()
 
     def compute_follow(self, follow: set[str], state: State):
+        assert self.follow.issubset(follow)
         self.val.compute_follow(follow, state)
         state.changed = state.changed or self.follow != follow
         self.follow = follow.copy()
@@ -295,8 +300,6 @@ def analyze(g: list[Production]) -> State:
         state.changed = False
         for p in g:
             p.rhs.compute_follow(state.follow[p.lhs], state)
-            state.changed = state.changed or state.follow[p.lhs] != p.rhs.follow
-            state.follow[p.lhs] = p.rhs.follow.copy()
 
     for p in g:
         p.rhs.compute_predict(state)
