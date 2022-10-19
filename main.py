@@ -2,20 +2,26 @@ import sys
 import json
 import argparse
 
-from grammar import Production, analyze
+from grammar import Production, analyze, Spec
 from parse_ebnf import Parser
 import gen_random
 import ascending
 import scanner
-import emit
+
+# import emit
+import infer
+import emit_python
+import new_parser
 
 
 def process_grammar(input):
     lexer = scanner.Scanner(input)
-    p = Parser(lexer)
-    g: list[Production] = p.grammar()
+    # p = Parser(lexer)
+    p = new_parser.Parser(lexer)
+    spec: Spec = p.parse()
+    g = spec.productions
     state = analyze(g)
-    return g, state
+    return spec, state
 
 
 def create(args) -> None:
@@ -24,14 +30,18 @@ def create(args) -> None:
             input = f.read()
     else:
         input = sys.stdin.read()
-    g, state = process_grammar(input)
+    spec, state = process_grammar(input)
+    inferer = infer.Inference(spec.productions, args.verbose)
+    inferer.do_inference()
     if args.output:
         with open(args.output, "w") as f:
-            emitter = emit.Emitter(g, state, f, args.verbose)
+            emitter = emit_python.Emitter(spec, state, f, args.verbose)
             emitter.emit_parser(state)
     else:
-        emitter = emit.Emitter(g, state, sys.stdout, args.verbose)
+        emitter = emit_python.Emitter(spec, state, sys.stdout, args.verbose)
         emitter.emit_parser(state)
+    if args.verbose:
+        spec.dump()
 
 
 def gen_examples(ns, args):

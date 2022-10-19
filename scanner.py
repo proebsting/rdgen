@@ -1,7 +1,12 @@
 import typing
 import string
 
-punctuation = {".", ":", "[", "]", "(", ")", "{", "}", "|"}
+punctuation = {"=", "'", ".", ":", "[", "]", "(", ")", "{", "}", "|", "@", "!"}
+
+delimited = [
+    ('"', '"', "STR", False),
+    ("<<", ">>", "CODE", True),
+]
 
 
 class Token(typing.NamedTuple):
@@ -27,25 +32,46 @@ def tokenize(s: str) -> list[Token]:
             i += 1
             while i < len(s) and s[i] != "\n":
                 i += 1
-        elif s[i] == '"':
-            token_start = i
-            i += 1
-            while i < len(s) and s[i] != '"' and s[i]:
-                i += 1
-            if s[i] != '"':
-                raise Exception("unterminated string")
-            i += 1
-            tokens.append(
-                Token("STR", s[token_start:i], line, token_start - line_start + 1)
-            )
-            line_start = i
+        elif any(s[i:].startswith(d[0]) for d in delimited):
+            for d in delimited:
+                if s[i:].startswith(d[0]):
+                    token_start = i
+                    i += len(d[0])
+                    while (
+                        i < len(s)
+                        and s[i] != "\n"
+                        and not s[i:].startswith(d[1])
+                    ):
+                        i += 1
+                    if not s[i:].startswith(d[1]):
+                        raise Exception("missing delimiter")
+                    i += len(d[1])
+                    if d[3]:
+                        value = s[token_start + len(d[0]) : i - len(d[1])]
+                    else:
+                        value = s[token_start:i]
+                    tokens.append(
+                        Token(
+                            d[2],
+                            value,
+                            line,
+                            token_start - line_start + 1,
+                        )
+                    )
+                    line_start = i
+                    break
         elif s[i] in string.ascii_letters:
             token_start = i
             i += 1
-            while i < len(s) and s[i] in string.ascii_letters + string.digits + "_":
+            while (
+                i < len(s)
+                and s[i] in string.ascii_letters + string.digits + "_"
+            ):
                 i += 1
             tokens.append(
-                Token("ID", s[token_start:i], line, token_start - line_start + 1)
+                Token(
+                    "ID", s[token_start:i], line, token_start - line_start + 1
+                )
             )
         elif s[i] in punctuation:
             tokens.append(Token(s[i], s[i], line, i - line_start + 1))

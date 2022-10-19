@@ -1,6 +1,20 @@
+from typing import List
+
 from scanner import Scanner
 
-from grammar import Production, Alts, Seq, Sym, Opt, Rep, Expr
+from grammar import (
+    Production,
+    Alts,
+    Seq,
+    Sym,
+    Opt,
+    Rep,
+    Expr,
+    Parens,
+    Lambda,
+    Cons,
+    Spec,
+)
 
 
 class Parser:
@@ -10,9 +24,19 @@ class Parser:
     def _error(self, msg: str):
         raise Exception(msg + " at " + str(self.scanner.peek()))
 
-    def _parse(self):
-        self.grammar()
+    def parse(self) -> Spec:
+        s = self.spec()
         self.scanner.match("EOF")
+        return s
+
+    def spec(self) -> Spec:
+        preamble: List[str] = []
+        while self.scanner.peek().kind in {"CODE"}:
+            tmp = self.scanner.match("CODE")
+            preamble.append(tmp.value.strip())
+        g: list[Production] = self.grammar()
+        _spec_: Spec = Spec(preamble, g)
+        return _spec_
 
     # grammar -> production { production }
     def grammar(self) -> list[Production]:
@@ -32,7 +56,7 @@ class Parser:
 
     # alternation -> sequence { "|" sequence }
     def alternation(self) -> Expr:
-        vals = [self.sequence()]
+        vals: list[Cons] = [self.sequence()]
         while self.scanner.peek().kind in {"|"}:
             self.scanner.match("|")
             s = self.sequence()
@@ -42,18 +66,35 @@ class Parser:
         return Alts(vals)
 
     # sequence -> term { term }
-    def sequence(self) -> Expr:
-        ret = self.term()
-        while self.scanner.peek().kind in {"ID", "STR", "[", "{", "("}:
+    def sequence(self) -> Cons:
+        prologue = []
+        while self.scanner.peek().kind in {"CODE"}:
+            tok = self.scanner.match("CODE")
+            prologue.append(tok.value.strip())
+        t = self.term()
+        ret = Cons(t, Lambda())
+        ret.prologue = prologue
+        last = ret
+        while self.scanner.peek().kind in {"ID", "STR", "[", "{", "(", "@"}:
             t = self.term()
-            ret = Seq(ret, t)
+            s = Cons(t, Lambda())
+            last.cdr = s
+            last = s
+        if self.scanner.peek().kind in {"="}:
+            self.scanner.match("=")
+            tok = self.scanner.match("CODE")
+            ret.code = tok.value.strip()
         return ret
 
-    # term -> "(" alternation ")" | "{" alternation "}" | "[" alternation "]" | ID | STR
+    # term -> [ "@" ] "(" alternation ")" | "{" alternation "}" | "[" alternation "]" | ID | STR
     def term(self) -> Expr:
+        flag: bool = False
+        if self.scanner.peek().kind in {"@"}:  # @ is a prefix
+            self.scanner.match("@")
+            flag = True
         if self.scanner.peek().kind in {"("}:
             self.scanner.match("(")
-            v = self.alternation()
+            v = Parens(self.alternation())
             self.scanner.match(")")
         elif self.scanner.peek().kind in {"{"}:
             self.scanner.match("{")
@@ -70,6 +111,19 @@ class Parser:
         else:
             self._error("syntax error")
             assert False
+        if self.scanner.peek().kind in {"!"}:
+            self.scanner.match("!")
+            v.simple = True
+        if self.scanner.peek().kind in {"'"}:
+            self.scanner.match("'")
+            tok = self.scanner.match("ID")
+            v.name = tok.value
+        stmts = []
+        while self.scanner.peek().kind in {"CODE"}:
+            tok = self.scanner.match("CODE")
+            stmts.append(tok.value.strip())
+        v.stmts = stmts
+        v.keep = flag
         return v
 
 

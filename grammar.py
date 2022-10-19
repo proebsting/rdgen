@@ -1,20 +1,14 @@
-import collections
-import typing
+from collections import defaultdict, Counter
+from typing import Optional, Set, List
 import sys
 
 
 class State:
-    nullable: collections.defaultdict[str, bool] = collections.defaultdict(
-        bool
-    )
-    first: collections.defaultdict[
-        str, typing.Set[str]
-    ] = collections.defaultdict(set)
-    follow: collections.defaultdict[
-        str, typing.Set[str]
-    ] = collections.defaultdict(set)
-    nonterms: typing.Set[str] = set()
-    terms: typing.Set[str] = set()
+    nullable: defaultdict[str, bool] = defaultdict(bool)
+    first: defaultdict[str, Set[str]] = defaultdict(set)
+    follow: defaultdict[str, Set[str]] = defaultdict(set)
+    nonterms: Set[str] = set()
+    terms: Set[str] = set()
     changed: bool = False
 
 
@@ -23,6 +17,15 @@ class Expr:
     first: set[str] = set()
     nullable = False
     follow: set[str] = set()
+
+    # code generation directives
+    name: Optional[str] = None
+    keep: bool = False
+    stmts: List[str] = []
+    simple: bool = False
+
+    # inherited target for computed value
+    target: Optional[str] = None
 
     def compute_nullable(self, state: State):
         assert False, "Expr.compute_nullable() not implemented"
@@ -36,6 +39,9 @@ class Expr:
     def compute_predict(self, state: State):
         assert False, "Expr.compute_predict() not implemented"
 
+    def compute_warnings(self):
+        assert False, "Expr.compute_warnings() not implemented"
+
     def __repr__(self):
         assert False, "Expr.__repr__() not implemented"
 
@@ -48,19 +54,93 @@ class Expr:
         assert False, "Expr.dump() not implemented"
 
     def dump0(self, indent, name) -> str:
-        return f"{indent}{name}: nullable: {self.nullable} first: {self.first} follow: {self.follow} predict: {self.predict}"
+        s = f"{indent}{name}: nullable: {self.nullable} first: {self.first} follow: {self.follow} predict: {self.predict}"
+        if self.name:
+            s += f" name: {self.name}"
+        if self.keep:
+            s += f" keep: {self.keep}"
+        if isinstance(self, Cons):
+            if self.code:
+                s += f" code: {self.code}"
+        return s
 
     def dump_flat(self, indent):
-        if isinstance(self, Seq):
+        if isinstance(self, Cons):
             self.car.dump_flat(indent)
             self.cdr.dump_flat(indent)
         else:
             self.dump(indent)
 
 
+class Seq(Expr):
+    def filter(self, f):
+        s = self
+        L = []
+        while isinstance(s, Cons):
+            if f(s):
+                L.append(s)
+            s = s.cdr
+        return L
+
+
+class Lambda(Seq):
+    def compute_nullable(self, state: State):
+        self.nullable = True
+
+    def compute_first(self, state: State):
+        self.first = set()
+
+    def compute_follow(self, follow: set[str], state: State):
+        self.follow = follow.copy()
+
+    def compute_predict(self, state: State):
+        self.predict = self.follow
+
+    def compute_warnings(self):
+        pass
+
+    def __repr__(self):
+        return ""
+
+    def dump(self, indent):
+        # print(self.dump0(indent, "Lambda"))
+        pass
+
+
+class Parens(Expr):
+    def __init__(self, e: Expr):
+        self.e = e
+
+    def compute_nullable(self, state: State):
+        self.nullable = self.e.nullable
+
+    def compute_first(self, state: State):
+        self.e.compute_first(state)
+        self.first = self.e.first.copy()
+
+    def compute_follow(self, follow: set[str], state: State):
+        self.e.compute_follow(follow, state)
+        self.follow = follow.copy()
+
+    def compute_predict(self, state: State):
+        self.e.compute_predict(state)
+        self.predict = self.e.predict.copy()
+
+    def compute_warnings(self):
+        self.e.compute_warnings()
+
+    def __repr__(self):
+        return f"({self.e.__repr__()})"
+
+    def dump(self, indent):
+        print(self.dump0(indent, "Parens"))
+        self.e.dump(indent + "  ")
+
+
 class Alts(Expr):
-    def __init__(self, vals: list[Expr]):
-        self.vals = vals
+    def __init__(self, vals: list["Cons"]):
+        self.vals: List["Cons"] = vals
+        self.warnings: list[str | None]
 
     def __repr__(self):
         return f'{" | ".join(repr(v) for v in self.vals)}'
@@ -93,27 +173,50 @@ class Alts(Expr):
             v.compute_predict(state)
         self.predict0(state)
 
+    def compute_warnings(self):
+        self.warnings = []
+        counts: Counter[str] = Counter(s for v in self.vals for s in v.predict)
+        for v in self.vals:
+            v.compute_warnings()
+            ambiguous: set[str] = {s for s in v.predict if counts[s] > 1}
+            if ambiguous:
+                self.warnings.append(
+                    f"{indent}# AMBIGUOUS LOOKAHEADS: {set_repr(ambiguous)}:\n"
+                )
+            else:
+                self.warnings.append(None)
+
     def dump(self, indent):
-        self.dump0(indent, "Alts")
+        print(self.dump0(indent, "Alts"))
         for i, v in enumerate(self.vals):
             print(f"{indent}#{i}:")
             v.dump(indent + "  ")
 
 
 def repr_seq(e, L):
-    if isinstance(e, Seq):
+    if isinstance(e, Cons):
         repr_seq(e.car, L)
         repr_seq(e.cdr, L)
-    elif isinstance(e, Alts):
-        L.append(f"( {repr(e)} )")
+    elif isinstance(e, Lambda):
+        pass
+    # elif isinstance(e, Alts):
+    #     L.append(f"( {repr(e)} )")
     else:
         L.append(repr(e))
 
 
-class Seq(Expr):
-    def __init__(self, car: Expr, cdr: Expr):
+class Cons(Seq):
+    def __init__(self, car: Expr, cdr: Seq):
         self.car = car
-        self.cdr = cdr
+        self.cdr: Seq = cdr
+        self.code: Optional[str] = None
+        self.prologue: List[str] = []
+
+        # possible inferred values for the sequence
+        self.at_term: Optional[str] = None
+        self.tuple: Optional[List[str]] = None
+        self.dict: Optional[List[str]] = None
+        self.singleton: Optional[str] = None
 
     def __repr__(self):
         L: list[str] = []
@@ -153,10 +256,14 @@ class Seq(Expr):
         self.cdr.compute_predict(state)
         self.predict0(state)
 
+    def compute_warnings(self):
+        self.car.compute_warnings()
+        self.cdr.compute_warnings()
+
     def dump(self, indent):
-        self.dump0(indent, "Seq")
-        self.car.dump_flat(indent + "  ")
-        self.cdr.dump_flat(indent + "  ")
+        print(self.dump0(indent, "Seq"))
+        self.car.dump(indent + "  ")
+        self.cdr.dump(indent)
 
 
 class Sym(Expr):
@@ -200,13 +307,17 @@ class Sym(Expr):
     def compute_predict(self, state: State):
         self.predict0(state)
 
+    def compute_warnings(self):
+        pass
+
     def dump(self, indent):
-        self.dump0(indent, f"Sym({self.value})")
+        print(self.dump0(indent, f"Sym({self.value})"))
 
 
 class Rep(Expr):
     def __init__(self, val: Expr):
         self.val = val
+        self.element: Optional[str] = None
 
     def __repr__(self):
         return "{" + f" {self.val.__repr__()} " + "}"
@@ -231,8 +342,19 @@ class Rep(Expr):
         self.val.compute_predict(state)
         self.predict0(state)
 
+    def compute_warnings(self):
+        self.warnings = []
+        self.val.compute_warnings()
+        inter = self.val.first.intersection(r.follow)
+        if inter:
+            self.warnings.append(
+                f"{indent}# AMBIGUOUS: with lookahead {set_repr(inter)}\n"
+            )
+        if self.val.nullable:
+            self.warnings.append(f"{indent}# AMBIGUOUS: Nullable Repetition\n")
+
     def dump(self, indent):
-        self.dump0(indent, "Rep")
+        print(self.dump0(indent, "Rep"))
         self.val.dump(indent + "  ")
 
 
@@ -262,8 +384,19 @@ class Opt(Expr):
         self.val.compute_predict(state)
         self.predict0(state)
 
+    def compute_warnings(self):
+        self.val.compute_warnings()
+        self.warnings = []
+        inter = self.val.first.intersection(o.follow)
+        if inter:
+            self.warnings.append(
+                f"{indent}# AMBIGUOUS: with lookahead {set_repr(inter)}\n"
+            )
+        if self.val.nullable:
+            self.warnings.append(f"{indent}# AMBIGUOUS: Nullable Optional\n")
+
     def dump(self, indent):
-        self.dump0(indent, "Opt")
+        print(self.dump0(indent, "Opt"))
         self.val.dump(indent + "  ")
 
 
@@ -275,6 +408,18 @@ class Production:
     def dump(self):
         print(self.lhs, " -> ")
         self.rhs.dump("  ")
+
+
+class Spec:
+    def __init__(self, preamble: List[str], productions: list[Production]):
+        self.preamble = preamble
+        self.productions = productions
+
+    def dump(self):
+        for p in self.preamble:
+            print(p)
+        for p in self.productions:
+            p.dump()
 
 
 def analyze(g: list[Production]) -> State:
@@ -312,6 +457,3 @@ def analyze(g: list[Production]) -> State:
         p.rhs.compute_predict(state)
 
     return state
-
-    # for p in g:
-    #     p.dump()

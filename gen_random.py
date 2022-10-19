@@ -1,6 +1,6 @@
 import random
 
-from grammar import Alts, Seq, Rep, Opt, Sym, Production, State, Expr
+from grammar import Alts, Seq, Rep, Opt, Sym, Production, State, Expr, Cons
 
 count = 0
 maximum = 100
@@ -11,8 +11,8 @@ def alts(self: Alts, productions: list[Production], state: State) -> list[str]:
     return gen_random(choice, productions, state)
 
 
-# seq
-def seq(self: Seq, productions: list[Production], state: State) -> list[str]:
+# cons
+def cons(self: Cons, productions: list[Production], state: State) -> list[str]:
     return gen_random(self.car, productions, state) + gen_random(
         self.cdr, productions, state
     )
@@ -55,8 +55,8 @@ def gen_random(e: Expr, productions: list[Production], state) -> list[str]:
     count += 1
     if isinstance(e, Alts):
         return alts(e, productions, state)
-    elif isinstance(e, Seq):
-        return seq(e, productions, state)
+    elif isinstance(e, Cons):
+        return cons(e, productions, state)
     elif isinstance(e, Rep):
         return rep(e, productions, state)
     elif isinstance(e, Opt):

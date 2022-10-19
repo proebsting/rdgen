@@ -1,7 +1,7 @@
 import heapq
 import pprint
 
-from grammar import Alts, Seq, Rep, Opt, Sym, Production, State, Expr
+from grammar import Alts, Seq, Rep, Opt, Sym, Production, State, Expr, Cons
 
 
 # MyHeap adapted from https://stackoverflow.com/questions/8875706/heapq-with-custom-compare-predicate
@@ -33,7 +33,7 @@ class MyHeap(object):
 def flatten(L, state: State) -> list:
     out = []
     for e in L:
-        if isinstance(e, Seq):
+        if isinstance(e, Cons):
             out += flatten([e.car, e.cdr], state)
         elif isinstance(e, Sym) and e.isterminal(state):
             if e.value[0] == '"':
@@ -47,7 +47,14 @@ def flatten(L, state: State) -> list:
 
 
 # alts
-def alts(self: Alts, before, after, heap, productions: list[Production], state: State):
+def alts(
+    self: Alts,
+    before,
+    after,
+    heap,
+    productions: list[Production],
+    state: State,
+):
     for alt in self.vals:
         L = before + [alt] + after
         L = flatten(L, state)
@@ -55,14 +62,23 @@ def alts(self: Alts, before, after, heap, productions: list[Production], state: 
 
 
 # seq
-def seq(self: Seq, before, after, heap, productions: list[Production], state: State):
+def cons(
+    self: Cons,
+    before,
+    after,
+    heap,
+    productions: list[Production],
+    state: State,
+):
     L = before + [self.car] + [self.cdr] + after
     L = flatten(L, state)
     heap.push(L)
 
 
 # rep
-def rep(self: Rep, before, after, heap, productions: list[Production], state: State):
+def rep(
+    self: Rep, before, after, heap, productions: list[Production], state: State
+):
     for count in range(0, 3):
         L = before + [self.val] * count + after
         L = flatten(L, state)
@@ -70,7 +86,9 @@ def rep(self: Rep, before, after, heap, productions: list[Production], state: St
 
 
 # opt
-def opt(self: Opt, before, after, heap, productions: list[Production], state: State):
+def opt(
+    self: Opt, before, after, heap, productions: list[Production], state: State
+):
     L = before + [self.val] + after
     L = flatten(L, state)
     heap.push(L)
@@ -80,7 +98,9 @@ def opt(self: Opt, before, after, heap, productions: list[Production], state: St
 
 
 # sym
-def sym(self: Sym, before, after, heap, productions: list[Production], state: State):
+def sym(
+    self: Sym, before, after, heap, productions: list[Production], state: State
+):
     if self.isterminal(state):
         if self.value[0] == '"':
             v = [self.value[1:-1]]
@@ -101,8 +121,8 @@ def sym(self: Sym, before, after, heap, productions: list[Production], state: St
 def add_derivations(e, before, after, heap, productions, state):
     if isinstance(e, Alts):
         return alts(e, before, after, heap, productions, state)
-    elif isinstance(e, Seq):
-        return seq(e, before, after, heap, productions, state)
+    elif isinstance(e, Cons):
+        return cons(e, before, after, heap, productions, state)
     elif isinstance(e, Rep):
         return rep(e, before, after, heap, productions, state)
     elif isinstance(e, Opt):
@@ -116,7 +136,7 @@ def add_derivations(e, before, after, heap, productions, state):
 def min_terminals0(e, state: State) -> int:
     if isinstance(e, Alts):
         return min([min_terminals0(v, state) for v in e.vals])
-    elif isinstance(e, Seq):
+    elif isinstance(e, Cons):
         return min_terminals0(e.car, state) + min_terminals0(e.cdr, state)
     elif isinstance(e, Rep):
         return 0
