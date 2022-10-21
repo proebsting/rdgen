@@ -85,6 +85,7 @@ class Seq(Expr):
 
 class Lambda(Seq):
     def compute_nullable(self, state: State):
+        print(f"Lambda {id(self)}")
         self.nullable = True
 
     def compute_first(self, state: State):
@@ -94,7 +95,7 @@ class Lambda(Seq):
         self.follow = follow.copy()
 
     def compute_predict(self, state: State):
-        self.predict = self.follow
+        self.predict = self.follow.copy()
 
     def compute_warnings(self):
         pass
@@ -112,6 +113,7 @@ class Parens(Expr):
         self.e = e
 
     def compute_nullable(self, state: State):
+        self.e.compute_nullable(state)
         self.nullable = self.e.nullable
 
     def compute_first(self, state: State):
@@ -248,6 +250,7 @@ class Cons(Seq):
             f = follow | self.cdr.first
             self.car.compute_follow(f, state)
         else:
+            assert not isinstance(self.cdr, Lambda), id(self.cdr)
             self.car.compute_follow(self.cdr.first, state)
         self.follow = follow.copy()
 
@@ -302,7 +305,7 @@ class Sym(Expr):
         self.follow = follow.copy()
         nt_follow = state.follow[self.value] | follow
         state.changed = state.changed or state.follow[self.value] != nt_follow
-        state.follow[self.value] = nt_follow
+        state.follow[self.value] = nt_follow.copy()
 
     def compute_predict(self, state: State):
         self.predict0(state)
@@ -323,6 +326,7 @@ class Rep(Expr):
         return "{" + f" {self.val.__repr__()} " + "}"
 
     def compute_nullable(self, state: State):
+        self.val.compute_nullable(state)
         state.changed = state.changed or self.nullable != True
         self.nullable = True
 
@@ -366,6 +370,7 @@ class Opt(Expr):
         return f"[ {self.val.__repr__()} ]"
 
     def compute_nullable(self, state: State):
+        self.val.compute_nullable(state)
         state.changed = state.changed or self.nullable != True
         self.nullable = True
 
@@ -450,8 +455,11 @@ def analyze(g: list[Production]) -> State:
     state.follow[g[0].lhs] = {"EOF"}
     while state.changed:
         state.changed = False
+        prev = state.follow.copy()
         for p in g:
             p.rhs.compute_follow(state.follow[p.lhs], state)
+        for s in prev.keys():
+                assert prev[s].issubset(state.follow[s])
 
     for p in g:
         p.rhs.compute_predict(state)
