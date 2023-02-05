@@ -76,3 +76,51 @@ The unix `sed` utility can help convert the generated sentences to have appropri
 ```
 $ sed 's/INT/314/g' examples.json
 ```
+
+# NEW STUFF
+
+The following has been implemented but is throughly untested.  (Note that "throughly untested" is even less tested than "not thoroughly tested.")  USE AT YOUR OWN RISK.
+
+`rdgen` now supports the ability to add Python code in the grammar:
+
+### Computing Values
+
+Every sequence of elements of the right-hand side of a production represents a value.  It can be computed in a bunch of different ways.  In order, these are the ways (the first applicable rule is used):
+
+1. whatever `= <<`*expr*`>>` produces, where *expr* is a valid one-line Python expression.
+2. the value of the only element in the sequence preceded by an `@`
+3. a tuple of multiple `@`-preceded elements in the sequence
+4. a dictionary of all the named terms in the sequence.  Terms are named by following them with `'`*id* where *id* is an identifier.
+5. the value of the singleton term
+6. `None`
+
+By default, the value of `[` *sequence* `]` is `None` if the optional sequence isn't parsed, but it's the value of the sequence if it is parsed.  This can be overridden by putting `!` after the `]`.
+
+By default, the value of `{` *sequence* `}` is a list of the values of the elements in the sequence.  This can be overridden by putting `!` after the `}`.
+
+The value *alpha* `|` *beta* is the value of *alpha* if *alpha* is parsed, and the value of *beta* if *alpha* isn't parsed.
+
+The value of `(` *sequence* `)` is the value of the sequence.  Parentheses are needed if you want to name the value of a sequence.  E.g., `(`*sequence*`)`'`foo` puts the value of *sequence* into a local variable, `foo`, in the emitted routine.
+
+### Naming values
+
+The value of a term can be named by following it with `'`*id* where *id* is an identifier.  
+
+That name can then be used in the code of the production.
+
+### Other code
+
+Code put before the first production is emitted prior to the generated parser.
+
+### Code in the grammar
+
+Code in the grammar is anything found between
+
+*  `<<` and `>>`, or
+* `«` and  `»`, or
+* `⟪` and `⟫`.
+
+(There's no fancy escaping, so pick your chevrons wisely.)
+
+The code is emitted after being stripped of leading and trailing whitespace.
+
