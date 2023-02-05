@@ -233,9 +233,8 @@ class Emitter:
 
     def emit_parser(self, state):
         prologue = f"""
-from scanner import Scanner
 class Parser:
-    def __init__(self, scanner: Scanner):
+    def __init__(self, scanner):
         self.scanner = scanner
 
     def error(self, msg: str):

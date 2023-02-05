@@ -85,7 +85,6 @@ class Seq(Expr):
 
 class Lambda(Seq):
     def compute_nullable(self, state: State):
-        print(f"Lambda {id(self)}")
         self.nullable = True
 
     def compute_first(self, state: State):
