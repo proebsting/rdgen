@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from typing import TextIO, List, Dict, Set, Tuple
 
 from grammar import (
@@ -48,8 +50,15 @@ class Emitter:
         if self.verbose:
             self.file.write(x.dump0(indent, "# Alts:") + "\n")
         cond = "if"
+        counted = defaultdict(int)
         for v in x.vals:
-            # TODO: warn about ambiguous lookahead
+            for t in v.predict:
+                counted[t] += 1
+
+        for v in x.vals:
+            ambiguous = {t for t in v.predict if counted[t] > 1}
+            if ambiguous:
+                print(f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}")
             self.file.write(
                 f"{indent}{cond} self.current() in {set_repr(v.predict)}:\n"
             )
@@ -90,7 +99,9 @@ class Emitter:
             self.file.write(f"{indent}{tgt} = None # default?\n")
 
     def rep(self, x: Rep, indent: str):
-        # TODO: warn about ambiguous lookahead
+        ambiguous = x.val.predict.intersection(x.follow)
+        if ambiguous:
+            print(f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}")
         if x.name and not x.simple:
             self.file.write(f"{indent}{x.name} = []\n")
         vs = set_repr(x.val.first)
@@ -102,7 +113,9 @@ class Emitter:
         self.epilogue(x, indent)
 
     def opt(self, x: Opt, indent: str):
-        # TODO: warn about ambiguous lookahead
+        ambiguous = x.val.predict.intersection(x.follow)
+        if ambiguous:
+            print(f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}")
         if self.verbose:
             self.file.write(x.dump0(indent, "# Opt:") + "\n")
         if x.name and not x.simple:
