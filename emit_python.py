@@ -73,8 +73,8 @@ class Emitter:
         assert x.name is None
         if self.verbose:
             self.file.write(x.dump0(indent, "# Cons:") + "\n")
-        if x.prologue:
-            self.file.write(f"{indent}{x.prologue}\n")
+        for stmt in x.prologue:
+            self.file.write(f"{indent}{stmt}\n")
         self.emit(x.car, indent)
         self.emit(x.cdr, indent)
         if x.target:
