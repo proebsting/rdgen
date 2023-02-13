@@ -13,9 +13,9 @@ class State:
 
 
 class Expr:
-    indentation = "    "
+    indentation: str = "    "
     first: set[str] = set()
-    nullable = False
+    nullable: bool = False
     follow: set[str] = set()
 
     # code generation directives
@@ -458,7 +458,7 @@ def analyze(g: list[Production]) -> State:
         for p in g:
             p.rhs.compute_follow(state.follow[p.lhs], state)
         for s in prev.keys():
-                assert prev[s].issubset(state.follow[s])
+            assert prev[s].issubset(state.follow[s])
 
     for p in g:
         p.rhs.compute_predict(state)

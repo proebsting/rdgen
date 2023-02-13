@@ -42,7 +42,7 @@ sequence:
 
 term: 
     [ "@" ]     'at 
-    @base        't 
+    @base       't 
     [ "!" ]     'simple
     [ "'" @id ] 'name 
     { code }    'stmts

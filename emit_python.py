@@ -58,7 +58,9 @@ class Emitter:
         for v in x.vals:
             ambiguous = {t for t in v.predict if counted[t] > 1}
             if ambiguous:
-                print(f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}")
+                self.file.write(
+                    f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}\n"
+                )
             self.file.write(
                 f"{indent}{cond} self.current() in {set_repr(v.predict)}:\n"
             )
@@ -101,7 +103,7 @@ class Emitter:
     def rep(self, x: Rep, indent: str):
         ambiguous = x.val.predict.intersection(x.follow)
         if ambiguous:
-            print(f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}")
+            self.file.write(f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}\n")
         if x.name and not x.simple:
             self.file.write(f"{indent}{x.name} = []\n")
         vs = set_repr(x.val.first)
@@ -115,7 +117,7 @@ class Emitter:
     def opt(self, x: Opt, indent: str):
         ambiguous = x.val.predict.intersection(x.follow)
         if ambiguous:
-            print(f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}")
+            self.file.write(f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}\n")
         if self.verbose:
             self.file.write(x.dump0(indent, "# Opt:") + "\n")
         if x.name and not x.simple:
