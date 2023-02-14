@@ -46,7 +46,7 @@ def tokenize(s: str) -> list[Token]:
                     ):
                         i += 1
                     if not s[i:].startswith(d[1]):
-                        raise Exception("missing delimiter")
+                        raise Exception(f"Line {line}: missing delimiter")
                     i += len(d[1])
                     if d[3]:
                         value = s[token_start + len(d[0]) : i - len(d[1])]

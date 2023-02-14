@@ -72,7 +72,10 @@ def main():
     args = parse_args()
     match args.command:
         case "create":
-            create(args)
+            try:
+                create(args)
+            except Exception as e:
+                print(f"Error: {e}")
         case "examples":
             examples(args)
         case "shortest":
