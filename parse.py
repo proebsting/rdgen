@@ -41,7 +41,7 @@ class Parser:
 
     def _spec(self):
         # spec -> { code } grammar
-        preamble = []
+        preamble: list[str] = []
         while self.current() in {"CODE"}:
             preamble_element_ = self._code()
             preamble.append(preamble_element_)
@@ -49,41 +49,41 @@ class Parser:
         _spec_ = Spec(preamble, g)
         return _spec_
 
-    def _grammar(self):
+    def _grammar(self) -> list[Production]:
         # grammar -> production { production }
-        p = self._production()
-        L = []
+        p: Production = self._production()
+        L: list[Production] = []
         while self.current() in {"ID"}:
-            L_element_ = self._production()
+            L_element_: Production = self._production()
             L.append(L_element_)
-        _grammar_ = [p] + L
+        _grammar_: list[Production] = [p] + L
         return _grammar_
 
-    def _production(self):
+    def _production(self) -> Production:
         # production -> id ":" alternation "."
         lhs = self._id()
         self.match(":")
-        rhs = self._alternation()
+        rhs: Alts | Sequence = self._alternation()
         self.match(".")
         _production_ = Production(lhs, rhs)
         return _production_
 
-    def _alternation(self):
+    def _alternation(self) -> Alts | Sequence:
         # alternation -> sequence { "|" sequence }
-        x = self._sequence()
-        L = []
+        x: Sequence = self._sequence()
+        L: list[Sequence] = []
         while self.current() in {"|"}:
             self.match("|")
-            L_element_ = self._sequence()
+            L_element_: Sequence = self._sequence()
             L.append(L_element_)
-        _alternation_ = Alts([x] + L) if L else x
+        _alternation_: Alts | Sequence = Alts([x] + L) if L else x
         return _alternation_
 
-    def _sequence(self):
+    def _sequence(self) -> Sequence:
         # sequence -> { code } term { term } [ "=" code ]
-        prologue = []
+        prologue: list[str] = []
         while self.current() in {"CODE"}:
-            prologue_element_ = self._code()
+            prologue_element_: str = self._code()
             prologue.append(prologue_element_)
         t = self._term()
         ret = last = Cons(t, Lambda())
@@ -122,7 +122,7 @@ class Parser:
         if self.current() in {"'"}:
             self.match("'")
             name = self._id()
-        stmts = []
+        stmts: list[str] = []
         while self.current() in {"CODE"}:
             stmts_element_ = self._code()
             stmts.append(stmts_element_)
