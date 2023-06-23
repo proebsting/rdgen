@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 
 from grammar import (
     Alts,
@@ -33,10 +33,12 @@ class Emitter:
         self,
         spec: Spec,
         state: State,
+        pragmas: Dict[str, Any],
         verbose: bool,
     ):
         self.spec: Spec = spec
         self.state: State = state
+        self.pragmas: Dict[str, Any] = pragmas
         self.verbose: bool = verbose
 
     def epilogue(self, x: Expr) -> List[ir.Stmt]:
@@ -199,5 +201,8 @@ class Emitter:
             f: ir.Function = self.prod(p, state)
             functions.append(f)
         return ir.Program(
-            self.spec.productions[0].lhs, self.spec.preamble, functions
+            self.spec.productions[0].lhs,
+            self.spec.preamble,
+            functions,
+            self.pragmas,
         )

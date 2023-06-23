@@ -1,15 +1,17 @@
-<< from grammar import Production,Alts,Sym,Opt,Rep,Parens,Lambda,Cons,Spec,Break,Continue,OnePlus,Sequence >>
+<< from grammar import Production,Alts,Sym,Opt,Rep,Parens,Lambda,Cons,Spec,Break,Expr,Continue,OnePlus,Sequence >>
 
+%% local.spec.preamble = "list[str]"
 spec:
     { code }'preamble
     grammar'g
     = << Spec(preamble,g) >>
     .
 
+%% local.grammar.prods = "list[Production]"
 grammar:
     production'p 
-    { production }'L 
-    = << [p]+L >> 
+    { production }'prods
+    = << [p]+prods >> 
     .
 
 production: 
@@ -20,12 +22,14 @@ production:
     = << Production(lhs, rhs) >> 
     .
 
+%% local.alternation.seqs = "list[Sequence]"
 alternation: 
     sequence'x 
-    { "|" @sequence }'L
-    =<< Alts([x]+L) if L else x >>
+    { "|" @sequence }'seqs
+    =<< Alts([x]+seqs) if seqs else x >>
     .
 
+%% local.sequence.prologue = "list[str]"
 sequence: 
     { code }'prologue 
     term't
@@ -39,6 +43,7 @@ sequence:
     = << Sequence(prologue, ret, c) >> 
     .
 
+%% local.term.stmts = "list[str]"
 term: 
     [ "@" ]     'at 
     @base       't 
@@ -65,3 +70,15 @@ base:
 code: CODE'c   =<< c.value.strip() >> .
 id  : ID'id    =<< id.value        >> .
 str : STR'id   =<< id.value        >> .
+
+%% [nonterm]
+%% str = "str"
+%% id  = "str"
+%% code = "str"
+%% base = "Expr"
+%% term = "Expr"
+%% sequence = "Sequence"
+%% alternation = "Alts | Sequence"
+%% production = "Production"
+%% grammar = "list[Production]"
+%% spec = "Spec"

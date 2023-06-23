@@ -1,4 +1,4 @@
-from typing import Set, List, Optional
+from typing import Set, List, Optional, Dict, Any
 from dataclasses import dataclass
 
 
@@ -134,3 +134,4 @@ class Program:
     start_nonterminal: str
     prologue: List[str]
     functions: List[Function]
+    pragmas: Dict[str, Any]

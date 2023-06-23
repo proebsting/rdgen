@@ -1,4 +1,4 @@
-import typing
+from typing import Tuple, NamedTuple
 import string
 
 keywords = {"break", "continue"}
@@ -29,15 +29,16 @@ delimited = [
 ]
 
 
-class Token(typing.NamedTuple):
+class Token(NamedTuple):
     kind: str
     value: str
     line: int
     column: int
 
 
-def tokenize(s: str) -> list[Token]:
+def tokenize(s: str) -> Tuple[list[Token], list[str]]:
     tokens: list[Token] = []
+    pragmas: list[str] = []
     line = 1
     line_start = 0
     i = 0
@@ -48,6 +49,13 @@ def tokenize(s: str) -> list[Token]:
                 line += 1
                 line_start = i
             i += 1
+        elif s[i:].startswith("%%"):
+            i += 2
+            pstart: int = i
+            while i < len(s) and s[i] != "\n":
+                i += 1
+            pragma: str = s[pstart:i]
+            pragmas.append(pragma)
         elif s[i] == "#":
             i += 1
             while i < len(s) and s[i] != "\n":
@@ -114,13 +122,18 @@ def tokenize(s: str) -> list[Token]:
             if not found:
                 raise Exception(f"Invalid character {s[i]}")
     tokens.append(Token("EOF", "", line, i - line_start + 1))
-    return tokens
+    return tokens, pragmas
 
 
 class Scanner:
+    input: str
+    tokens: list[Token]
+    index: int
+    pragmas: list[str]
+
     def __init__(self, input: str):
         self.input = input
-        self.tokens = tokenize(input)
+        self.tokens, self.pragmas = tokenize(input)
         self.index = 0
 
     def peek(self) -> Token:

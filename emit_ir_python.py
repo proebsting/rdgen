@@ -1,5 +1,6 @@
 from ir import *
 from typing import TextIO
+from collections import defaultdict
 
 
 def term_repr(s: str) -> str:
@@ -17,6 +18,15 @@ def mk_guard(guard: Optional[Guard]) -> str:
 
 
 class Emitter:
+    program: Program
+    file: TextIO
+    verbose: bool
+    prefix: str
+    indent: str
+    nonterm_types: Dict[str, str]
+    local_types: Dict[str, Dict[str, str]]
+    current: Dict[str, str] = {}
+
     def __init__(
         self,
         program: Program,
@@ -28,6 +38,18 @@ class Emitter:
         self.verbose: bool = verbose
         self.prefix = "_"
         self.indent = "    "
+        self.process_pragmas()
+
+    def process_pragmas(self) -> None:
+        self.nonterm_types = {}
+        self.local_types = defaultdict(dict)
+        if "nonterm" in self.program.pragmas:
+            for nt, ty in self.program.pragmas["nonterm"].items():
+                self.nonterm_types[nt] = ty
+        if "local" in self.program.pragmas:
+            for f, d in self.program.pragmas["local"].items():
+                for v, ty in d.items():
+                    self.local_types[f][v] = ty
 
     def emit(self, *vals: str) -> None:
         s: str = " ".join(vals)
@@ -44,6 +66,9 @@ class Emitter:
                 cmt: str = ", ".join(d.name for d in decls)
                 if self.verbose and cmt:
                     self.emit(f"{indent}# VERBOSE: locals: {cmt}")
+                for d in decls:
+                    if d.name in self.current:
+                        self.emit(f"{indent}{d.name}: {self.current[d.name]}")
                 for s in stmts:
                     self.stmt(s, indent)
             case Terminal(lhs, term):
@@ -100,7 +125,13 @@ class Emitter:
                 raise Exception(f"unhandled statement {s}")
 
     def function(self, f: Function) -> None:
-        self.emit(f"{self.indent}def {self.prefix}{f.name}(self):")
+        rettype: str = (
+            " -> " + self.nonterm_types[f.name]
+            if f.name in self.nonterm_types
+            else ""
+        )
+        self.emit(f"{self.indent}def {self.prefix}{f.name}(self){rettype}:")
+        self.current = self.local_types[f.name]
         for s in f.body:
             self.stmt(s, self.indent * 2)
         self.emit()

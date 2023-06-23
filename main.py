@@ -2,8 +2,10 @@ import sys
 import json
 import argparse
 from types import ModuleType
+import tomllib
+from typing import Tuple, Dict, Any
 
-from grammar import Spec
+from grammar import Spec, Production
 
 import gen_random
 import ascending
@@ -17,15 +19,17 @@ from parse import Parser
 import analysis
 
 
-def process_grammar(input: str):
+def process_grammar(input: str) -> Tuple[Spec, analysis.State, Dict[str, Any]]:
     lexer = scanner.Scanner(input)
+    concatenated = "\n".join(lexer.pragmas)
+    toml: Dict[str, Any] = tomllib.loads(concatenated)
     p = Parser(lexer)
     spec: Spec = p.parse()
-    g = spec.productions
+    g: list[Production] = spec.productions
 
-    state = analysis.analysis(g)
+    state: analysis.State = analysis.analysis(g)
 
-    return spec, state
+    return spec, state, toml
 
 
 def create(args: argparse.Namespace) -> None:
@@ -34,7 +38,8 @@ def create(args: argparse.Namespace) -> None:
             input = f.read()
     else:
         input = sys.stdin.read()
-    spec, state = process_grammar(input)
+    pragmas: Dict[str, Any]
+    spec, state, pragmas = process_grammar(input)
     inferer = infer.Inference(spec.productions, args.verbose)
     inferer.do_inference()
     # if args.output:
@@ -48,7 +53,7 @@ def create(args: argparse.Namespace) -> None:
     import gen_ir
     import emit_ir_python
 
-    ir_emitter = gen_ir.Emitter(spec, state, args.verbose)
+    ir_emitter = gen_ir.Emitter(spec, state, pragmas, args.verbose)
     generated = ir_emitter.emit_parser(state)
     if args.output:
         with open(args.output, "w") as f:
@@ -70,7 +75,7 @@ def gen_examples(ns: ModuleType, args: argparse.Namespace) -> None:
             input = f.read()
     else:
         input = sys.stdin.read()
-    g, state = process_grammar(input)
+    g, state, _ = process_grammar(input)
     L = ns.gen_examples(g, state, args.quantity, args.limit)
     js = json.dumps(L, indent=2) + "\n"
     if args.output:
