@@ -1,11 +1,13 @@
 import sys
 import json
 import argparse
+from types import ModuleType
 
-from grammar import Production, analyze, Spec
-from parse_ebnf import Parser
+from grammar import Spec
+
 import gen_random
 import ascending
+
 import scanner
 
 # import emit
@@ -13,18 +15,22 @@ import infer
 import emit_python
 import new_parser
 
+import analysis
 
-def process_grammar(input):
+
+def process_grammar(input: str):
     lexer = scanner.Scanner(input)
     # p = Parser(lexer)
     p = new_parser.Parser(lexer)
     spec: Spec = p.parse()
     g = spec.productions
-    state = analyze(g)
+
+    state = analysis.analysis(g)
+
     return spec, state
 
 
-def create(args) -> None:
+def create(args: argparse.Namespace) -> None:
     if args.input:
         with open(args.input, "r") as f:
             input = f.read()
@@ -33,18 +39,34 @@ def create(args) -> None:
     spec, state = process_grammar(input)
     inferer = infer.Inference(spec.productions, args.verbose)
     inferer.do_inference()
+    # if args.output:
+    #     with open(args.output, "w") as f:
+    #         emitter = emit_python.Emitter(spec, state, f, args.verbose)
+    #         emitter.emit_parser(state)
+    # else:
+    #     emitter = emit_python.Emitter(spec, state, sys.stdout, args.verbose)
+    #     emitter.emit_parser(state)
+
+    import gen_ir
+    import emit_ir_python
+
+    ir_emitter = gen_ir.Emitter(spec, state, args.verbose)
+    generated = ir_emitter.emit_parser(state)
     if args.output:
         with open(args.output, "w") as f:
-            emitter = emit_python.Emitter(spec, state, f, args.verbose)
-            emitter.emit_parser(state)
+            py_emitter = emit_ir_python.Emitter(generated, f, args.verbose)
+            py_emitter.emit_program()
     else:
-        emitter = emit_python.Emitter(spec, state, sys.stdout, args.verbose)
-        emitter.emit_parser(state)
+        py_emitter = emit_ir_python.Emitter(
+            generated, sys.stdout, args.verbose
+        )
+        py_emitter.emit_program()
+
     if args.verbose:
         spec.dump()
 
 
-def gen_examples(ns, args):
+def gen_examples(ns: ModuleType, args: argparse.Namespace) -> None:
     if args.input:
         with open(args.input, "r") as f:
             input = f.read()
@@ -60,11 +82,11 @@ def gen_examples(ns, args):
         sys.stdout.write(js)
 
 
-def examples(args) -> None:
+def examples(args: argparse.Namespace) -> None:
     gen_examples(gen_random, args)
 
 
-def shortest(args) -> None:
+def shortest(args: argparse.Namespace) -> None:
     gen_examples(ascending, args)
 
 
@@ -75,11 +97,14 @@ def main():
             try:
                 create(args)
             except Exception as e:
+                raise e
                 print(f"Error: {e}")
         case "examples":
             examples(args)
         case "shortest":
             shortest(args)
+        case _:
+            raise NotImplementedError(args.command)
 
 
 def parse_args():

@@ -5,7 +5,6 @@ from scanner import Scanner
 from grammar import (
     Production,
     Alts,
-    Seq,
     Sym,
     Opt,
     Rep,
@@ -67,7 +66,7 @@ class Parser:
 
     # sequence -> term { term }
     def sequence(self) -> Cons:
-        prologue = []
+        prologue: List[str] = []
         while self.scanner.peek().kind in {"CODE"}:
             tok = self.scanner.match("CODE")
             prologue.append(tok.value.strip())
@@ -118,7 +117,7 @@ class Parser:
             self.scanner.match("'")
             tok = self.scanner.match("ID")
             v.name = tok.value
-        stmts = []
+        stmts: List[str] = []
         while self.scanner.peek().kind in {"CODE"}:
             tok = self.scanner.match("CODE")
             stmts.append(tok.value.strip())

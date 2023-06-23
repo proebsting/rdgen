@@ -1,7 +1,25 @@
 import typing
 import string
 
-punctuation = {"=", "'", ".", ":", "[", "]", "(", ")", "{", "}", "|", "@", "!"}
+keywords = {"break", "continue"}
+
+punctuation = {
+    "{+",
+    "+}",
+    "=",
+    "'",
+    ".",
+    ":",
+    "[",
+    "]",
+    "(",
+    ")",
+    "{",
+    "}",
+    "|",
+    "@",
+    "!",
+}
 
 delimited = [
     ('"', '"', "STR", False),
@@ -70,16 +88,31 @@ def tokenize(s: str) -> list[Token]:
                 and s[i] in string.ascii_letters + string.digits + "_"
             ):
                 i += 1
+            name = s[token_start:i]
+            if name in keywords:
+                kind = name
+            else:
+                kind = "ID"
             tokens.append(
                 Token(
-                    "ID", s[token_start:i], line, token_start - line_start + 1
+                    kind,
+                    name,
+                    line,
+                    token_start - line_start + 1,
                 )
             )
-        elif s[i] in punctuation:
-            tokens.append(Token(s[i], s[i], line, i - line_start + 1))
-            i += 1
+
         else:
-            raise Exception(f"Invalid character {s[i]}")
+            found = False
+            suffix = s[i:]
+            for p in punctuation:
+                if suffix.startswith(p):
+                    tokens.append(Token(p, p, line, i - line_start + 1))
+                    i += len(p)
+                    found = True
+                    break
+            if not found:
+                raise Exception(f"Invalid character {s[i]}")
     tokens.append(Token("EOF", "", line, i - line_start + 1))
     return tokens
 

@@ -1,0 +1,140 @@
+from ir import *
+from typing import TextIO
+
+
+def term_repr(s: str) -> str:
+    return s.replace('"', "").__repr__()
+
+
+def set_repr(s: set[str]) -> str:
+    return "{" + ", ".join(term_repr(w) for w in sorted(s)) + "}"
+
+
+def mk_guard(guard: Optional[Guard]) -> str:
+    if not guard:
+        return "True"
+    return f"self.current() in {set_repr(guard.predict)}"
+
+
+class Emitter:
+    def __init__(
+        self,
+        program: Program,
+        file: TextIO,
+        verbose: bool,
+    ) -> None:
+        self.program: Program = program
+        self.file: TextIO = file
+        self.verbose: bool = verbose
+        self.prefix = "_"
+        self.indent = "    "
+
+    def emit(self, *vals: str) -> None:
+        s: str = " ".join(vals)
+        print(s, file=self.file)
+
+    def stmt(self, s: Stmt, indent: str) -> None:
+        indent1: str = indent + self.indent
+        indent2: str = indent + self.indent * 2
+        match s:
+            case Copy(lhs, rhs):
+                if lhs != rhs:
+                    self.emit(f"{indent}{lhs} = {rhs}")
+            case Sequence(decls, stmts):
+                cmt: str = ", ".join(d.name for d in decls)
+                if self.verbose and cmt:
+                    self.emit(f"{indent}# VERBOSE: locals: {cmt}")
+                for s in stmts:
+                    self.stmt(s, indent)
+            case Terminal(lhs, term):
+                tgt: str = f"{lhs} = " if lhs else ""
+                self.emit(f"{indent}{tgt}self.match({term_repr(term)})")
+            case NonTerminal(lhs, nonterm):
+                tgt: str = f"{lhs} = " if lhs else ""
+                self.emit(f"{indent}{tgt}self.{self.prefix}{nonterm}()")
+            case Loop(top, body, bottom):
+                t: str = mk_guard(top)
+                b: str = mk_guard(bottom)
+                self.emit(f"{indent}while {t}:")
+                for s in body:
+                    self.stmt(s, indent1)
+                if bottom:
+                    self.emit(f"{indent1}if not ({b}):")
+                    self.emit(f"{indent2}break")
+            case SelectAlternative(guardeds, error):
+                test = "if"
+                for g in guardeds:
+                    self.emit(f"{indent}{test} {mk_guard(g.guard)}:")
+                    test = "elif"
+                    for s in g.body:
+                        self.stmt(s, indent1)
+                if error:
+                    self.emit(f"{indent}else:")
+                    self.emit(
+                        f"{indent1}self.error({term_repr(error.message)})"
+                    )
+            case Corn(value):
+                self.emit(f"{indent}{value}")
+            case Break():
+                self.emit(f"{indent}break")
+            case Continue():
+                self.emit(f"{indent}continue")
+            case Empty():
+                pass
+            case AssignNull(lhs):
+                self.emit(f"{indent}{lhs} = None")
+            case AssignEmptyList(lhs):
+                self.emit(f"{indent}{lhs} = []")
+            case AppendToList(lhs, value):
+                self.emit(f"{indent}{lhs}.append({value})")
+            case Return(value):
+                self.emit(f"{indent}return {value}")
+            case Warning(message):
+                self.emit(f"{indent}# WARNING: {message}")
+            case Comment(message):
+                self.emit(f"{indent}# {message}")
+            case Verbose(message):
+                if self.verbose:
+                    self.emit(f"{indent}# VERBOSE: {message}")
+            case _:
+                raise Exception(f"unhandled statement {s}")
+
+    def function(self, f: Function) -> None:
+        self.emit(f"{self.indent}def {self.prefix}{f.name}(self):")
+        for s in f.body:
+            self.stmt(s, self.indent * 2)
+        self.emit()
+
+    def emit_program(self) -> None:
+        prologue: str = f"""
+from typing import NoReturn
+from scanner import Scanner, Token
+class Parser:
+    def __init__(self, scanner:Scanner):
+        self.scanner:Scanner = scanner
+
+    def error(self, msg: str)->NoReturn:
+        raise Exception(msg + " at " + str(self.scanner.peek()))
+
+    def match(self, kind: str)->Token:
+        if self.current() == kind:
+            return self.scanner.consume()
+        else:
+            self.error(f"expected {{kind}}")
+
+    def current(self)->str:
+        return self.scanner.peek().kind
+
+    def parse(self):
+        v = self.{self.prefix}{self.program.start_nonterminal}()
+        self.match("EOF")
+        return v
+"""
+
+        for p in self.program.prologue:
+            self.emit(p)
+
+        self.emit(prologue)
+
+        for f in self.program.functions:
+            self.function(f)

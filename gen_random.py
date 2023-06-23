@@ -1,6 +1,9 @@
 import random
+from typing import List
 
-from grammar import Alts, Seq, Rep, Opt, Sym, Production, State, Expr, Cons
+from grammar import Alts, Rep, Opt, Sym, Production, Expr, Cons
+
+from analysis import State
 
 count = 0
 maximum = 100
@@ -20,25 +23,25 @@ def cons(self: Cons, productions: list[Production], state: State) -> list[str]:
 
 # rep
 def rep(self: Rep, productions: list[Production], state: State) -> list[str]:
-    L = []
+    lexemes: List[str] = []
     if count < 100:
         for _ in range(random.randint(0, 2)):
-            L += gen_random(self.val, productions, state)
-    return L
+            lexemes += gen_random(self.val, productions, state)
+    return lexemes
 
 
 # opt
 def opt(self: Opt, productions: list[Production], state: State):
-    L = []
+    lexemes: List[str] = []
     if count < 100:
         for _ in range(random.randint(0, 1)):
-            L += gen_random(self.val, productions, state)
-    return L
+            lexemes += gen_random(self.val, productions, state)
+    return lexemes
 
 
 # sym
 def sym(self: Sym, productions: list[Production], state: State) -> list[str]:
-    if self.isterminal(state):
+    if self.value in state.terms:
         if self.value[0] == '"':
             return [self.value[1:-1]]
         else:
@@ -50,7 +53,9 @@ def sym(self: Sym, productions: list[Production], state: State) -> list[str]:
         assert False, f"unknown symbol: {self.value}"
 
 
-def gen_random(e: Expr, productions: list[Production], state) -> list[str]:
+def gen_random(
+    e: Expr, productions: list[Production], state: State
+) -> list[str]:
     global count
     count += 1
     if isinstance(e, Alts):
@@ -67,7 +72,7 @@ def gen_random(e: Expr, productions: list[Production], state) -> list[str]:
         raise Exception(f"unknown expr: {e}")
 
 
-def gen(e: Expr, productions: list[Production], state, max: int) -> str:
+def gen(e: Expr, productions: list[Production], state: State, max: int) -> str:
     global count, maximum
     count = 0
     maximum = max

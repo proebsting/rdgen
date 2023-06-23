@@ -1,6 +1,4 @@
-from collections import Counter
-from typing import TextIO, NamedTuple, Optional, List, Dict, Set, Tuple
-from sys import stderr
+from typing import TextIO, Optional, List
 
 from grammar import (
     Alts,
@@ -9,12 +7,13 @@ from grammar import (
     Opt,
     Sym,
     Production,
-    State,
     Expr,
     Parens,
     Lambda,
     Cons,
 )
+
+from analysis import State
 
 
 def term_repr(s: str) -> str:
@@ -68,9 +67,9 @@ class Emitter:
             self.file.write(x.dump0(indent, "# Cons:") + f" {target}\n")
         if x.prologue:
             self.file.write(f"{indent}{x.prologue}\n")
-        assign = self.create_assignment(x, indent, target)
-        self.emit(x.car, indent, [])
-        self.emit(x.cdr, indent, [])
+        assign: str | None = self.create_assignment(x, indent, target)
+        self.emit(x.car, indent, None)
+        self.emit(x.cdr, indent, None)
         if assign:
             self.file.write(assign)
 
@@ -81,7 +80,9 @@ class Emitter:
     # 4. a dictionary of all the named terms
     # 5. the value of the singleton term
     # 6. None
-    def create_assignment(self, x: Cons, indent, target):
+    def create_assignment(
+        self, x: Cons, indent: str, target: Optional[str]
+    ) -> str | None:
         """this has side effects!"""
         assign: Optional[str] = None
         if target:
@@ -89,7 +90,7 @@ class Emitter:
                 assign = f"{indent}{target} = {x.code}\n"
             else:
                 p: Seq = x
-                names = []
+                names: List[str] = []
                 keeps: List[Expr] = []
                 while isinstance(p, Cons):
                     if p.car.name:
@@ -105,7 +106,7 @@ class Emitter:
                         else:
                             k.name = target
                     else:
-                        knames = []
+                        knames: List[str] = []
                         for i, k in enumerate(keeps):
                             if not k.name:
                                 k.name = f"_tmp{i}"  # must fix
@@ -180,7 +181,7 @@ class Emitter:
         elif target:
             tgt = f"{target} = "
 
-        if x.isterminal(self.state):
+        if x.value in self.state.terms:
             cmd = f"{tgt}self.match({term_repr(x.value)})"
         else:
             cmd = f"{tgt}self.{self.prefix}{x.value}()"
@@ -206,14 +207,14 @@ class Emitter:
         self.file.write(f"{indent}# {p.lhs} -> {p.rhs.__repr__()}\n")
         if self.verbose:
             self.file.write(
-                f"{indent}# {p.lhs}: nullable {state.nullable[p.lhs]}, first {state.first[p.lhs]}, follow {state.follow[p.lhs]}\n"
+                f"{indent}# {p.lhs}: nullable {state.syms_nullable[p.lhs]}, first {state.syms_first[p.lhs]}, follow {state.syms_follow[p.lhs]}\n"
             )
         self.file.write(f"{indent}def {self.prefix}{p.lhs}(self):\n")
         var = f"_{p.lhs}_"
         self.emit(p.rhs, indented, var)
         self.file.write(f"{indented}return {var}\n")
 
-    def emit(self, e: Expr, indent: str, target):
+    def emit(self, e: Expr, indent: str, target: Optional[str]):
         if isinstance(e, Alts):
             self.alts(e, indent, target)
         elif isinstance(e, Cons):
@@ -231,7 +232,7 @@ class Emitter:
         else:
             raise Exception(f"unknown expr: {e}")
 
-    def emit_parser(self, state):
+    def emit_parser(self, state: State):
         prologue = f"""
 class Parser:
     def __init__(self, scanner):

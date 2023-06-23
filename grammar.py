@@ -1,15 +1,6 @@
-from collections import defaultdict, Counter
-from typing import Optional, Set, List
-import sys
+from typing import Optional, List, Callable, Any, Set
 
-
-class State:
-    nullable: defaultdict[str, bool] = defaultdict(bool)
-    first: defaultdict[str, Set[str]] = defaultdict(set)
-    follow: defaultdict[str, Set[str]] = defaultdict(set)
-    nonterms: Set[str] = set()
-    terms: Set[str] = set()
-    changed: bool = False
+# from analysis import State
 
 
 class Expr:
@@ -17,6 +8,7 @@ class Expr:
     first: set[str] = set()
     nullable: bool = False
     follow: set[str] = set()
+    predict: set[str]
 
     # code generation directives
     name: Optional[str] = None
@@ -27,44 +19,42 @@ class Expr:
     # inherited target for computed value
     target: Optional[str] = None
 
-    def compute_nullable(self, state: State):
-        assert False, "Expr.compute_nullable() not implemented"
+    def visit(
+        self,
+        pre: Callable[["Expr", Any], None],
+        post: Callable[["Expr", Any], None],
+        arg: Any,
+    ) -> None:
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.visit() not implemented"
+        )
 
-    def compute_first(self, state: State):
-        assert False, "Expr.compute_first() not implemented"
+    def __repr__(self) -> str:
+        assert False, (
+            "Expr.__repr__() not implemented for " + self.__class__.__name__
+        )
 
-    def compute_follow(self, follow: set[str], state: State):
-        assert False, "Expr.compute_follow() not implemented"
+    def dump(self, indent: str) -> None:
+        assert False, (
+            "Expr.dump() not implemented for " + self.__class__.__name__
+        )
 
-    def compute_predict(self, state: State):
-        assert False, "Expr.compute_predict() not implemented"
+    def nameOf(self) -> str:
+        return self.__class__.__name__
 
-    def compute_warnings(self):
-        assert False, "Expr.compute_warnings() not implemented"
-
-    def __repr__(self):
-        assert False, "Expr.__repr__() not implemented"
-
-    def predict0(self, state: State):
-        self.predict = self.first
-        if self.nullable:
-            self.predict |= self.follow
-
-    def dump(self, indent):
-        assert False, "Expr.dump() not implemented"
-
-    def dump0(self, indent, name) -> str:
-        s = f"{indent}{name}: nullable: {self.nullable} first: {self.first} follow: {self.follow} predict: {self.predict}"
+    def dump0(self) -> str:
+        name = self.nameOf()
+        s = f"{name}: nullable: {self.nullable} first: {self.first} follow: {self.follow} predict: {self.predict}"
         if self.name:
             s += f" name: {self.name}"
         if self.keep:
             s += f" keep: {self.keep}"
-        if isinstance(self, Cons):
+        if isinstance(self, Sequence):
             if self.code:
                 s += f" code: {self.code}"
         return s
 
-    def dump_flat(self, indent):
+    def dump_flat(self, indent: str):
         if isinstance(self, Cons):
             self.car.dump_flat(indent)
             self.cdr.dump_flat(indent)
@@ -72,10 +62,45 @@ class Expr:
             self.dump(indent)
 
 
-class Seq(Expr):
-    def filter(self, f):
+class Seq0(Expr):
+    pass
+
+
+class Sequence(Expr):
+    def __init__(
+        self, prologue: List[str], seq: "Cons", code: Optional[str]
+    ) -> None:
+        self.seq: Cons = seq
+        self.code: Optional[str] = code
+        self.prologue: List[str] = prologue
+
+        # possible inferred values for the sequence
+        self.at_term: Optional[str] = None
+        self.tuple: Optional[List[str]] = None
+        self.dict: Optional[List[str]] = None
+        self.singleton: Optional[str] = None
+
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ) -> None:
+        pre(self, arg)
+        self.seq.visit(pre, post, arg)
+        post(self, arg)
+
+    def __repr__(self):
+        L: list[str] = []
+        repr_seq(self.seq, L)
+        return " ".join(L)
+
+    def dump(self, indent: str) -> None:
+        self.seq.dump(indent)
+
+    def filter(self, f: Callable[["Cons"], bool]) -> List["Cons"]:
         s = self
-        L = []
+        L: List[Cons] = []
         while isinstance(s, Cons):
             if f(s):
                 L.append(s)
@@ -83,26 +108,23 @@ class Seq(Expr):
         return L
 
 
-class Lambda(Seq):
-    def compute_nullable(self, state: State):
-        self.nullable = True
-
-    def compute_first(self, state: State):
-        self.first = set()
-
-    def compute_follow(self, follow: set[str], state: State):
-        self.follow = follow.copy()
-
-    def compute_predict(self, state: State):
-        self.predict = self.follow.copy()
-
-    def compute_warnings(self):
+class Lambda(Seq0):
+    def __init__(self):
         pass
 
-    def __repr__(self):
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ) -> None:
+        pre(self, arg)
+        post(self, arg)
+
+    def __repr__(self) -> str:
         return ""
 
-    def dump(self, indent):
+    def dump(self, indent: str) -> None:
         # print(self.dump0(indent, "Lambda"))
         pass
 
@@ -111,159 +133,87 @@ class Parens(Expr):
     def __init__(self, e: Expr):
         self.e = e
 
-    def compute_nullable(self, state: State):
-        self.e.compute_nullable(state)
-        self.nullable = self.e.nullable
-
-    def compute_first(self, state: State):
-        self.e.compute_first(state)
-        self.first = self.e.first.copy()
-
-    def compute_follow(self, follow: set[str], state: State):
-        self.e.compute_follow(follow, state)
-        self.follow = follow.copy()
-
-    def compute_predict(self, state: State):
-        self.e.compute_predict(state)
-        self.predict = self.e.predict.copy()
-
-    def compute_warnings(self):
-        self.e.compute_warnings()
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ) -> None:
+        pre(self, arg)
+        self.e.visit(pre, post, arg)
+        post(self, arg)
 
     def __repr__(self):
         return f"({self.e.__repr__()})"
 
-    def dump(self, indent):
-        print(self.dump0(indent, "Parens"))
+    def dump(self, indent: str):
+        print(indent, self.dump0())
         self.e.dump(indent + "  ")
 
 
 class Alts(Expr):
-    def __init__(self, vals: list["Cons"]):
-        self.vals: List["Cons"] = vals
+    def __init__(self, vals: list["Sequence"]):
+        self.vals: List["Sequence"] = vals
         self.warnings: list[str | None]
+
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        for v in self.vals:
+            v.visit(pre, post, arg)
+        post(self, arg)
 
     def __repr__(self):
         return f'{" | ".join(repr(v) for v in self.vals)}'
 
-    def compute_nullable(self, state: State):
-        for v in self.vals:
-            v.compute_nullable(state)
-        prev = self.nullable
-        self.nullable = any(v.nullable for v in self.vals)
-        state.changed = state.changed or prev != self.nullable
-
-    def compute_first(self, state: State):
-        union: set[str] = set()
-        for v in self.vals:
-            v.compute_first(state)
-            union |= v.first
-        prev = self.first
-        state.changed = state.changed or prev != self.first
-        self.first = union
-
-    def compute_follow(self, follow: set[str], state: State):
-        assert self.follow.issubset(follow)
-        state.changed = state.changed or self.follow != follow
-        self.follow = follow.copy()
-        for v in self.vals:
-            v.compute_follow(follow, state)
-
-    def compute_predict(self, state: State):
-        for v in self.vals:
-            v.compute_predict(state)
-        self.predict0(state)
-
-    def compute_warnings(self):
-        self.warnings = []
-        counts: Counter[str] = Counter(s for v in self.vals for s in v.predict)
-        for v in self.vals:
-            v.compute_warnings()
-            ambiguous: set[str] = {s for s in v.predict if counts[s] > 1}
-            if ambiguous:
-                self.warnings.append(
-                    f"{indent}# AMBIGUOUS LOOKAHEADS: {set_repr(ambiguous)}:\n"
-                )
-            else:
-                self.warnings.append(None)
-
-    def dump(self, indent):
-        print(self.dump0(indent, "Alts"))
+    def dump(self, indent: str):
+        print(indent, self.dump0())
         for i, v in enumerate(self.vals):
             print(f"{indent}#{i}:")
             v.dump(indent + "  ")
 
 
-def repr_seq(e, L):
+def repr_seq(e: Expr, lis: list[str]):
     if isinstance(e, Cons):
-        repr_seq(e.car, L)
-        repr_seq(e.cdr, L)
+        repr_seq(e.car, lis)
+        repr_seq(e.cdr, lis)
     elif isinstance(e, Lambda):
         pass
     # elif isinstance(e, Alts):
     #     L.append(f"( {repr(e)} )")
     else:
-        L.append(repr(e))
+        lis.append(repr(e))
 
 
-class Cons(Seq):
-    def __init__(self, car: Expr, cdr: Seq):
-        self.car = car
-        self.cdr: Seq = cdr
-        self.code: Optional[str] = None
-        self.prologue: List[str] = []
+class Cons(Seq0):
+    dict: Optional[List[str]]
 
-        # possible inferred values for the sequence
-        self.at_term: Optional[str] = None
-        self.tuple: Optional[List[str]] = None
-        self.dict: Optional[List[str]] = None
-        self.singleton: Optional[str] = None
+    def __init__(self, car: Expr, cdr: Seq0):
+        self.car: Expr = car
+        self.cdr: Seq0 = cdr
+
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        self.car.visit(pre, post, arg)
+        self.cdr.visit(pre, post, arg)
+        post(self, arg)
 
     def __repr__(self):
         L: list[str] = []
         repr_seq(self, L)
         return " ".join(L)
 
-    def compute_nullable(self, state: State):
-        self.car.compute_nullable(state)
-        self.cdr.compute_nullable(state)
-        prev = self.nullable
-        self.nullable = self.car.nullable and self.cdr.nullable
-        state.changed = state.changed or prev != self.nullable
-
-    def compute_first(self, state: State):
-        self.car.compute_first(state)
-        self.cdr.compute_first(state)
-        prev = self.first
-        if self.car.nullable:
-            self.first = self.car.first | self.cdr.first
-        else:
-            self.first = self.car.first.copy()
-        state.changed = state.changed or prev != self.first
-
-    def compute_follow(self, follow: set[str], state: State):
-        state.changed = state.changed or self.follow != follow
-        assert self.follow.issubset(follow)
-        self.cdr.compute_follow(follow, state)
-        if self.cdr.nullable:
-            f = follow | self.cdr.first
-            self.car.compute_follow(f, state)
-        else:
-            assert not isinstance(self.cdr, Lambda), id(self.cdr)
-            self.car.compute_follow(self.cdr.first, state)
-        self.follow = follow.copy()
-
-    def compute_predict(self, state: State):
-        self.car.compute_predict(state)
-        self.cdr.compute_predict(state)
-        self.predict0(state)
-
-    def compute_warnings(self):
-        self.car.compute_warnings()
-        self.cdr.compute_warnings()
-
-    def dump(self, indent):
-        print(self.dump0(indent, "Seq"))
+    def dump(self, indent: str):
+        print(indent, self.dump0())
         self.car.dump(indent + "  ")
         self.cdr.dump(indent)
 
@@ -272,92 +222,56 @@ class Sym(Expr):
     def __init__(self, value: str):
         self.value = value
 
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        post(self, arg)
+
     def __repr__(self):
         return self.value
 
-    def isterminal(self, state) -> bool:
-        if self.value in state.nonterms:
-            return False
-        else:
-            state.terms.add(self.value)
-            return True
+    def nameOf(self) -> str:
+        return f"Sym({self.value})"
 
-    def compute_nullable(self, state: State):
-        if self.isterminal(state):
-            v = False
-        else:
-            v = state.nullable[self.value]
-        state.changed = state.changed or self.nullable != v
-        self.nullable = v
+    # def isterminal(self, state: State) -> bool:
+    #     if self.value in state.nonterms:
+    #         return False
+    #     else:
+    #         state.terms.add(self.value)
+    #         return True
 
-    def compute_first(self, state: State):
-        if self.isterminal(state):
-            v = {self.value}
-        else:
-            v = state.first[self.value].copy()
-        state.changed = state.changed or self.first != v
-        self.first = v
-
-    def compute_follow(self, follow: set[str], state: State):
-        state.changed = state.changed or self.follow != follow
-        assert self.follow.issubset(follow)
-        self.follow = follow.copy()
-        nt_follow = state.follow[self.value] | follow
-        state.changed = state.changed or state.follow[self.value] != nt_follow
-        state.follow[self.value] = nt_follow.copy()
-
-    def compute_predict(self, state: State):
-        self.predict0(state)
-
-    def compute_warnings(self):
-        pass
-
-    def dump(self, indent):
-        print(self.dump0(indent, f"Sym({self.value})"))
+    def dump(self, indent: str) -> None:
+        print(indent, self.dump0())
 
 
-class Rep(Expr):
+class Loop(Expr):
+    pass
+
+
+class Rep(Loop):
     def __init__(self, val: Expr):
         self.val = val
         self.element: Optional[str] = None
 
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        self.val.visit(pre, post, arg)
+        post(self, arg)
+
     def __repr__(self):
         return "{" + f" {self.val.__repr__()} " + "}"
 
-    def compute_nullable(self, state: State):
-        self.val.compute_nullable(state)
-        state.changed = state.changed or self.nullable != True
-        self.nullable = True
-
-    def compute_first(self, state: State):
-        self.val.compute_first(state)
-        state.changed = state.changed or self.first != self.val.first
-        assert self.first.issubset(self.val.first)
-        self.first = self.val.first.copy()
-
-    def compute_follow(self, follow: set[str], state: State):
-        assert self.follow.issubset(follow)
-        self.val.compute_follow(follow | self.val.first, state)
-        state.changed = state.changed or self.follow != follow
-        self.follow = follow.copy()
-
-    def compute_predict(self, state: State):
-        self.val.compute_predict(state)
-        self.predict0(state)
-
-    def compute_warnings(self):
-        self.warnings = []
-        self.val.compute_warnings()
-        inter = self.val.first.intersection(r.follow)
-        if inter:
-            self.warnings.append(
-                f"{indent}# AMBIGUOUS: with lookahead {set_repr(inter)}\n"
-            )
-        if self.val.nullable:
-            self.warnings.append(f"{indent}# AMBIGUOUS: Nullable Repetition\n")
-
-    def dump(self, indent):
-        print(self.dump0(indent, "Rep"))
+    def dump(self, indent: str):
+        print(indent, self.dump0())
         self.val.dump(indent + "  ")
 
 
@@ -365,42 +279,88 @@ class Opt(Expr):
     def __init__(self, val: Expr):
         self.val = val
 
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        self.val.visit(pre, post, arg)
+        post(self, arg)
+
     def __repr__(self):
         return f"[ {self.val.__repr__()} ]"
 
-    def compute_nullable(self, state: State):
-        self.val.compute_nullable(state)
-        state.changed = state.changed or self.nullable != True
-        self.nullable = True
+    def dump(self, indent: str):
+        print(indent, self.dump0())
+        self.val.dump(indent + "  ")
 
-    def compute_first(self, state: State):
-        self.val.compute_first(state)
-        state.changed = state.changed or self.first != self.val.first
-        self.first = self.val.first.copy()
 
-    def compute_follow(self, follow: set[str], state: State):
-        assert self.follow.issubset(follow)
-        self.val.compute_follow(follow, state)
-        state.changed = state.changed or self.follow != follow
-        self.follow = follow.copy()
+class Exit(Expr):
+    pass
 
-    def compute_predict(self, state: State):
-        self.val.compute_predict(state)
-        self.predict0(state)
 
-    def compute_warnings(self):
-        self.val.compute_warnings()
-        self.warnings = []
-        inter = self.val.first.intersection(o.follow)
-        if inter:
-            self.warnings.append(
-                f"{indent}# AMBIGUOUS: with lookahead {set_repr(inter)}\n"
-            )
-        if self.val.nullable:
-            self.warnings.append(f"{indent}# AMBIGUOUS: Nullable Optional\n")
+class Break(Exit):
+    def __init__(self):
+        pass
 
-    def dump(self, indent):
-        print(self.dump0(indent, "Opt"))
+    def __repr__(self):
+        return "break"
+
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        post(self, arg)
+
+    def dump(self, indent: str):
+        print(indent, self.dump0())
+
+
+class Continue(Exit):
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return "continue"
+
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        post(self, arg)
+
+    def dump(self, indent: str):
+        print(indent + self.dump0())
+
+
+class OnePlus(Loop):
+    def __init__(self, val: Expr):
+        self.val = val
+        self.element: Optional[str] = None
+
+    def __repr__(self):
+        return f"{{ {self.val.__repr__()} }}"
+
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        self.val.visit(pre, post, arg)
+        post(self, arg)
+
+    def dump(self, indent: str):
+        print(indent + self.dump0())
         self.val.dump(indent + "  ")
 
 
@@ -418,49 +378,10 @@ class Spec:
     def __init__(self, preamble: List[str], productions: list[Production]):
         self.preamble = preamble
         self.productions = productions
+        self.nonterms: Set[str] = set(p.lhs for p in productions)
 
     def dump(self):
         for p in self.preamble:
             print(p)
         for p in self.productions:
             p.dump()
-
-
-def analyze(g: list[Production]) -> State:
-    state = State()
-    for p in g:
-        assert p.lhs not in state.nonterms
-        state.nonterms.add(p.lhs)
-
-    state.changed = True
-    while state.changed:
-        state.changed = False
-        for p in g:
-            p.rhs.compute_nullable(state)
-            state.changed = (
-                state.changed or state.nullable[p.lhs] != p.rhs.nullable
-            )
-            state.nullable[p.lhs] = p.rhs.nullable
-
-    state.changed = True
-    while state.changed:
-        state.changed = False
-        for p in g:
-            p.rhs.compute_first(state)
-            state.changed = state.changed or state.first[p.lhs] != p.rhs.first
-            state.first[p.lhs] = p.rhs.first.copy()
-
-    state.changed = True
-    state.follow[g[0].lhs] = {"EOF"}
-    while state.changed:
-        state.changed = False
-        prev = state.follow.copy()
-        for p in g:
-            p.rhs.compute_follow(state.follow[p.lhs], state)
-        for s in prev.keys():
-            assert prev[s].issubset(state.follow[s])
-
-    for p in g:
-        p.rhs.compute_predict(state)
-
-    return state

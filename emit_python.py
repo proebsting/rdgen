@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from typing import TextIO, List, Dict, Set, Tuple
+from typing import TextIO, Dict
 
 from grammar import (
     Alts,
@@ -8,13 +8,17 @@ from grammar import (
     Opt,
     Sym,
     Production,
-    State,
     Expr,
     Parens,
     Lambda,
     Cons,
     Spec,
+    Break,
+    Continue,
+    OnePlus,
 )
+
+from analysis import State
 
 
 def term_repr(s: str) -> str:
@@ -39,7 +43,7 @@ class Emitter:
         self.verbose = verbose
         self.prefix = "_"
 
-    def epilogue(self, x, indent: str):
+    def epilogue(self, x: Expr, indent: str) -> None:
         for stmt in x.stmts:
             self.file.write(f"{indent}{stmt}\n")
         if x.name and x.target:
@@ -50,7 +54,7 @@ class Emitter:
         if self.verbose:
             self.file.write(x.dump0(indent, "# Alts:") + "\n")
         cond = "if"
-        counted = defaultdict(int)
+        counted: Dict[str, int] = defaultdict(int)
         for v in x.vals:
             for t in v.predict:
                 counted[t] += 1
@@ -114,6 +118,32 @@ class Emitter:
             self.file.write(f"{indented}{x.name}.append({x.element})\n")
         self.epilogue(x, indent)
 
+    def oneplus(self, x: OnePlus, indent: str):
+        ambiguous = x.val.predict.intersection(x.follow)
+        if ambiguous:
+            self.file.write(f"{indent}# AMBIGUOUS lookahead(s): {ambiguous}\n")
+        if x.name and not x.simple:
+            self.file.write(f"{indent}{x.name} = []\n")
+        vs = set_repr(x.val.first)
+        self.file.write(f"{indent}while True:\n")
+        indented = indent + x.indentation
+        self.emit(x.val, indented)
+        if x.name and not x.simple:
+            self.file.write(f"{indented}{x.name}.append({x.element})\n")
+        self.file.write(f"{indent}if self.current() not in {vs}:\n")
+        self.file.write(f"{indented}break\n")
+        self.epilogue(x, indent)
+
+    def _break(self, x: Break, indent: str):
+        if self.verbose:
+            self.file.write(x.dump0(indent, "# Break:") + "\n")
+        self.file.write(f"{indent}break\n")
+
+    def _continue(self, x: Continue, indent: str):
+        if self.verbose:
+            self.file.write(x.dump0(indent, "# Continue:") + "\n")
+        self.file.write(f"{indent}continue\n")
+
     def opt(self, x: Opt, indent: str):
         ambiguous = x.val.predict.intersection(x.follow)
         if ambiguous:
@@ -131,7 +161,7 @@ class Emitter:
         if self.verbose:
             self.file.write(x.dump0(indent, "# Sym:") + "\n")
         tgt = f"{x.name} = " if x.name else ""
-        if x.isterminal(self.state):
+        if x.value in self.state.terms:
             cmd = f"{tgt}self.match({term_repr(x.value)})"
         else:
             cmd = f"{tgt}self.{self.prefix}{x.value}()"
@@ -157,22 +187,28 @@ class Emitter:
             self.parens(e, indent)
         elif isinstance(e, Lambda):
             pass
+        elif isinstance(e, Break):
+            self._break(e, indent)
+        elif isinstance(e, Continue):
+            self._continue(e, indent)
+        elif isinstance(e, OnePlus):
+            self.oneplus(e, indent)
         else:
             raise Exception(f"unknown expr: {e}")
 
-    def prod(self, p: Production, indent: str, state: State):
+    def prod(self, p: Production, indent: str, state: State) -> None:
         indented = indent * 2
         self.file.write(f"{indent}# {p.lhs} -> {p.rhs.__repr__()}\n")
         if self.verbose:
             self.file.write(
-                f"{indent}# {p.lhs}: nullable {state.nullable[p.lhs]}, first {state.first[p.lhs]}, follow {state.follow[p.lhs]}\n"
+                f"{indent}# {p.lhs}: nullable {state.syms_nullable[p.lhs].get_value()}, first {state.syms_first[p.lhs].get_value()}, follow {state.syms_follow[p.lhs].get_value()}\n"
             )
         self.file.write(f"{indent}def {self.prefix}{p.lhs}(self):\n")
         var = f"_{p.lhs}_"
         self.emit(p.rhs, indented)
         self.file.write(f"{indented}return {var}\n")
 
-    def emit_parser(self, state):
+    def emit_parser(self, state: State):
         prologue = f"""
 class Parser:
     def __init__(self, scanner):

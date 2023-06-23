@@ -1,4 +1,4 @@
-<< from grammar import Production,Alts,Seq,Sym,Opt,Rep,Expr,Parens,Lambda,Cons,Spec,Break,Continue,OnePlus >>
+<< from grammar import Production,Alts,Sym,Opt,Rep,Parens,Lambda,Cons,Spec,Break,Continue,OnePlus,Sequence >>
 
 spec:
     { code }'preamble
@@ -30,14 +30,13 @@ sequence:
     { code }'prologue 
     term't
     << ret = last = Cons(t, Lambda()) >>
-    << ret.prologue = prologue >>
     {
         term't              
         << last.cdr = Cons(t, last.cdr) >> 
         << last = last.cdr              >> 
     } !
-    [ "=" @code ]'c       << ret.code = c or None >>
-    = <<ret>> 
+    [ "=" @code ]'c
+    = << Sequence(prologue, ret, c) >> 
     .
 
 term: 

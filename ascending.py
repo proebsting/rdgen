@@ -1,18 +1,24 @@
 import heapq
-import pprint
+from typing import List, Callable, Tuple
 
-from grammar import Alts, Seq, Rep, Opt, Sym, Production, State, Expr, Cons
+from grammar import Alts, Rep, Opt, Sym, Production, Cons, Expr
+
+from analysis import State
 
 
 # MyHeap adapted from https://stackoverflow.com/questions/8875706/heapq-with-custom-compare-predicate
 class MyHeap(object):
-    def __init__(self, key=lambda x: x, limit=20):
-        self.key = key
+    def __init__(
+        self,
+        key: Callable[[List[str | Expr]], Tuple[int, int]],
+        limit: int = 20,
+    ):
+        self.key: Callable[[List[str | Expr]], Tuple[int, int]] = key
         self.index = 0
-        self._data = []
+        self._data: List[Tuple[Tuple[int, int], int, List[str | Expr]]] = []
         self.limit = limit
 
-    def push(self, item):
+    def push(self, item: List[str | Expr]):
         v = (self.key(item), self.index, item)
         if v[0][0] > self.limit:
             return
@@ -21,8 +27,11 @@ class MyHeap(object):
         heapq.heappush(self._data, v)
         self.index += 1
 
-    def pop(self):
+    def pop(self) -> List[str | Expr]:
         return heapq.heappop(self._data)[2]
+
+    def __len__(self):
+        return len(self._data)
 
     def dump(self):
         for item in self._data:
@@ -30,12 +39,13 @@ class MyHeap(object):
         print("---")
 
 
-def flatten(L, state: State) -> list:
-    out = []
-    for e in L:
+def flatten(exprs: List[Expr | str], state: State) -> List[str | Expr]:
+    out: List[str | Expr] = []
+    for e in exprs:
         if isinstance(e, Cons):
             out += flatten([e.car, e.cdr], state)
-        elif isinstance(e, Sym) and e.isterminal(state):
+        elif isinstance(e, Sym) and e.value in state.terms:
+            v: str
             if e.value[0] == '"':
                 v = e.value[1:-1]
             else:
@@ -49,76 +59,98 @@ def flatten(L, state: State) -> list:
 # alts
 def alts(
     self: Alts,
-    before,
-    after,
-    heap,
+    before: List[Expr | str],
+    after: List[Expr | str],
+    heap: MyHeap,
     productions: list[Production],
     state: State,
 ):
     for alt in self.vals:
-        L = before + [alt] + after
-        L = flatten(L, state)
-        heap.push(L)
+        lis: List[Expr | str] = before + [alt] + after
+        lis = flatten(lis, state)
+        heap.push(lis)
 
 
 # seq
 def cons(
     self: Cons,
-    before,
-    after,
-    heap,
+    before: List[Expr | str],
+    after: List[Expr | str],
+    heap: MyHeap,
     productions: list[Production],
     state: State,
 ):
-    L = before + [self.car] + [self.cdr] + after
-    L = flatten(L, state)
-    heap.push(L)
+    lis = before + [self.car] + [self.cdr] + after
+    lis = flatten(lis, state)
+    heap.push(lis)
 
 
 # rep
 def rep(
-    self: Rep, before, after, heap, productions: list[Production], state: State
+    self: Rep,
+    before: List[Expr | str],
+    after: List[Expr | str],
+    heap: MyHeap,
+    productions: list[Production],
+    state: State,
 ):
     for count in range(0, 3):
-        L = before + [self.val] * count + after
-        L = flatten(L, state)
-        heap.push(L)
+        lis = before + [self.val] * count + after
+        lis = flatten(lis, state)
+        heap.push(lis)
 
 
 # opt
 def opt(
-    self: Opt, before, after, heap, productions: list[Production], state: State
+    self: Opt,
+    before: List[Expr | str],
+    after: List[Expr | str],
+    heap: MyHeap,
+    productions: list[Production],
+    state: State,
 ):
-    L = before + [self.val] + after
-    L = flatten(L, state)
-    heap.push(L)
-    L = before + after
-    L = flatten(L, state)
-    heap.push(L)
+    lis = before + [self.val] + after
+    lis = flatten(lis, state)
+    heap.push(lis)
+    lis = before + after
+    lis = flatten(lis, state)
+    heap.push(lis)
 
 
 # sym
 def sym(
-    self: Sym, before, after, heap, productions: list[Production], state: State
+    self: Sym,
+    before: List[Expr | str],
+    after: List[Expr | str],
+    heap: MyHeap,
+    productions: list[Production],
+    state: State,
 ):
-    if self.isterminal(state):
+    if self.value in state.terms:
         if self.value[0] == '"':
             v = [self.value[1:-1]]
         else:
             v = [self.value]
-        L = before + v + after
-        heap.push(L)
+        lis = before + v + after
+        heap.push(lis)
     else:
         for p in productions:
             if p.lhs == self.value:
                 inner = flatten([p.rhs], state)
-                L = before + inner + after
-                heap.push(L)
+                lis = before + inner + after
+                heap.push(lis)
                 return
         assert False, f"unknown symbol: {self.value}"
 
 
-def add_derivations(e, before, after, heap, productions, state):
+def add_derivations(
+    e: Expr,
+    before: List[Expr | str],
+    after: List[Expr | str],
+    heap: MyHeap,
+    productions: List[Production],
+    state: State,
+):
     if isinstance(e, Alts):
         return alts(e, before, after, heap, productions, state)
     elif isinstance(e, Cons):
@@ -133,7 +165,7 @@ def add_derivations(e, before, after, heap, productions, state):
         raise Exception(f"unknown expr: {e}")
 
 
-def min_terminals0(e, state: State) -> int:
+def min_terminals0(e: Expr | str, state: State) -> int:
     if isinstance(e, Alts):
         return min([min_terminals0(v, state) for v in e.vals])
     elif isinstance(e, Cons):
@@ -143,7 +175,7 @@ def min_terminals0(e, state: State) -> int:
     elif isinstance(e, Opt):
         return 0
     elif isinstance(e, Sym):
-        if e.isterminal(state):
+        if e.value in state.terms:
             return 1
         else:
             return 0
@@ -153,10 +185,11 @@ def min_terminals0(e, state: State) -> int:
         raise Exception(f"unknown expr: {e}")
 
 
-def count_terminals(L: list) -> int:
-    assert isinstance(L, list)
+def count_terminals(lis: List[Expr | str]) -> int:
+    assert isinstance(lis, list)
     count = 0
-    for e in L:
+    e: Expr | str
+    for e in lis:
         if isinstance(e, str):
             count += 1
     return count
@@ -165,21 +198,23 @@ def count_terminals(L: list) -> int:
 def gen_examples(
     grammar: list[Production], state: State, quantity: int, limit: int
 ) -> list[str]:
-    def min_terminals(L) -> int:
-        assert isinstance(L, list)
-        return sum([min_terminals0(e, state) for e in L])
+    def min_terminals(lis: List[Expr | str]) -> int:
+        assert isinstance(lis, list)
+        return sum([min_terminals0(e, state) for e in lis])
 
-    outputs = []
+    outputs: List[str] = []
     heap = MyHeap(key=lambda x: (min_terminals(x), len(x)), limit=limit)
     start = flatten([grammar[0].rhs], state)
     heap.push(start)
-    while len(heap._data) > 0 and len(outputs) < quantity:
+    while len(heap) > 0 and len(outputs) < quantity:
         # if len(outputs) % 1000 == 0:
         #     print(f"# len(outputs)={len(outputs)}")
         #     print(f"# len(heap)={len(heap._data)}")
-        e = heap.pop()
+        e: List[str | Expr] = heap.pop()
         if count_terminals(e) == len(e):
-            s = " ".join(e)
+            assert all(isinstance(s, str) for s in e)
+            ss: List[str] = [s for s in e if isinstance(s, str)]
+            s: str = " ".join(ss)
             outputs.append(s)
             # print(f"output: {s.__repr__()}")
         else:
