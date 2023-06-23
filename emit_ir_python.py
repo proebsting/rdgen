@@ -23,9 +23,8 @@ class Emitter:
     verbose: bool
     prefix: str
     indent: str
-    nonterm_types: Dict[str, str]
-    local_types: Dict[str, Dict[str, str]]
-    current: Dict[str, str] = {}
+    types: Dict[str, Dict[str, str]]
+    current: Dict[str, str]
 
     def __init__(
         self,
@@ -41,15 +40,9 @@ class Emitter:
         self.process_pragmas()
 
     def process_pragmas(self) -> None:
-        self.nonterm_types = {}
-        self.local_types = defaultdict(dict)
-        if "nonterm" in self.program.pragmas:
-            for nt, ty in self.program.pragmas["nonterm"].items():
-                self.nonterm_types[nt] = ty
-        if "local" in self.program.pragmas:
-            for f, d in self.program.pragmas["local"].items():
-                for v, ty in d.items():
-                    self.local_types[f][v] = ty
+        self.types = defaultdict(dict)
+        for k, v in self.program.pragmas.items():
+            self.types[k] = v
 
     def emit(self, *vals: str) -> None:
         s: str = " ".join(vals)
@@ -126,12 +119,12 @@ class Emitter:
 
     def function(self, f: Function) -> None:
         rettype: str = (
-            " -> " + self.nonterm_types[f.name]
-            if f.name in self.nonterm_types
+            " -> " + self.types[f.name]["return"]
+            if "return" in self.types[f.name]
             else ""
         )
         self.emit(f"{self.indent}def {self.prefix}{f.name}(self){rettype}:")
-        self.current = self.local_types[f.name]
+        self.current = self.types[f.name]
         for s in f.body:
             self.stmt(s, self.indent * 2)
         self.emit()
