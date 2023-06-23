@@ -12,7 +12,6 @@ import scanner
 
 # import emit
 import infer
-import emit_python
 import new_parser
 
 import analysis
