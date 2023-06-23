@@ -12,15 +12,14 @@ import scanner
 
 # import emit
 import infer
-import new_parser
+from parse import Parser
 
 import analysis
 
 
 def process_grammar(input: str):
     lexer = scanner.Scanner(input)
-    # p = Parser(lexer)
-    p = new_parser.Parser(lexer)
+    p = Parser(lexer)
     spec: Spec = p.parse()
     g = spec.productions
 
