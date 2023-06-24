@@ -40,9 +40,7 @@ class Emitter:
         self.process_pragmas()
 
     def process_pragmas(self) -> None:
-        self.types = defaultdict(dict)
-        for k, v in self.program.pragmas.items():
-            self.types[k] = v
+        self.types = defaultdict(dict, self.program.pragmas)
 
     def emit(self, *vals: str) -> None:
         s: str = " ".join(vals)
