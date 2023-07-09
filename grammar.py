@@ -1,6 +1,13 @@
-from typing import Optional, List, Callable, Any, Set
+from typing import NamedTuple, Optional, List, Callable, Any, Set
+
+from ir import Stmt
 
 # from analysis import State
+
+
+class Target(NamedTuple):
+    name: str
+    side_effect: List[Stmt]
 
 
 class Expr:
@@ -18,7 +25,7 @@ class Expr:
     keep0: bool = False  # default keep
 
     # inherited target for computed value
-    target: Optional[str] = None
+    target: Optional[Target] = None
 
     def visit(
         self,
@@ -279,7 +286,8 @@ class Value(Expr):
 
 
 class Loop(Expr):
-    pass
+    element: Optional[str]
+    val: Expr
 
 
 class Rep(Loop):

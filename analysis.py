@@ -119,6 +119,11 @@ def post_setup(self: grammar.Expr, x: Any) -> None:
             x.first[self] ^= x.first[self.val]
 
             x.follow[self.val] ^= x.first[self] | x.follow[self]
+        case grammar.OnePlus():
+            x.nullable[self] ^= x.nullable[self.val]
+            x.first[self] ^= x.first[self.val]
+
+            x.follow[self.val] ^= x.first[self] | x.follow[self]
         case grammar.Infinite():
             x.nullable[self] ^= x.nullable[self.val]
             x.first[self] ^= x.first[self.val]
