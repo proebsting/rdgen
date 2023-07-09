@@ -39,6 +39,14 @@ class Emitter:
         self.indent = "    "
         self.process_pragmas()
 
+    def emit_stmts(self, stmts: List[Stmt], indent: str) -> None:
+        if not stmts:
+            s = f"{indent}pass"
+            self.emit(s)
+            return
+        for s in stmts:
+            self.stmt(s, indent)
+
     def process_pragmas(self) -> None:
         self.types = defaultdict(dict, self.program.pragmas)
 
@@ -51,8 +59,8 @@ class Emitter:
         indent2: str = indent + self.indent * 2
         match s:
             case Copy(lhs, rhs):
-                if lhs != rhs:
-                    self.emit(f"{indent}{lhs} = {rhs}")
+                assert lhs != rhs
+                self.emit(f"{indent}{lhs} = {rhs}")
             case Sequence(decls, stmts):
                 cmt: str = ", ".join(d.name for d in decls)
                 if self.verbose and cmt:
@@ -60,8 +68,7 @@ class Emitter:
                 for d in decls:
                     if d.name in self.current:
                         self.emit(f"{indent}{d.name}: {self.current[d.name]}")
-                for s in stmts:
-                    self.stmt(s, indent)
+                self.emit_stmts(stmts, indent)
             case Terminal(lhs, term):
                 tgt: str = f"{lhs} = " if lhs else ""
                 self.emit(f"{indent}{tgt}self.match({term_repr(term)})")
@@ -72,8 +79,7 @@ class Emitter:
                 t: str = mk_guard(top)
                 b: str = mk_guard(bottom)
                 self.emit(f"{indent}while {t}:")
-                for s in body:
-                    self.stmt(s, indent1)
+                self.emit_stmts(body, indent1)
                 if bottom:
                     self.emit(f"{indent1}if not ({b}):")
                     self.emit(f"{indent2}break")
@@ -82,8 +88,7 @@ class Emitter:
                 for g in guardeds:
                     self.emit(f"{indent}{test} {mk_guard(g.guard)}:")
                     test = "elif"
-                    for s in g.body:
-                        self.stmt(s, indent1)
+                    self.emit_stmts(g.body, indent1)
                 if error:
                     self.emit(f"{indent}else:")
                     self.emit(
@@ -126,8 +131,7 @@ class Emitter:
         self.current = self.types[f.name]
         if rettype:
             self.emit(f"{self.indent * 2}_{f.name}_: {rettype}")
-        for s in f.body:
-            self.stmt(s, self.indent * 2)
+        self.emit_stmts(f.body, self.indent * 2)
         self.emit()
 
     def emit_program(self) -> None:

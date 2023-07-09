@@ -88,8 +88,8 @@ class Seq0(Expr):
 
 
 class Sequence(Expr):
-    def __init__(self, seq: "Cons") -> None:
-        self.seq: Cons = seq
+    def __init__(self, seq: Seq0) -> None:
+        self.seq: Seq0 = seq
 
         # possible inferred values for the sequence
         self.at_term: Optional[str] = None
@@ -131,7 +131,6 @@ def mkSequence(exprs: List[Expr]) -> Sequence:
     seq: Seq0 = Lambda()
     for x in reversed(exprs):
         seq = Cons(x, seq)
-    assert isinstance(seq, Cons)
     return Sequence(seq)
 
 

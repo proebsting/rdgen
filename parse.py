@@ -98,29 +98,24 @@ class Parser:
 
     def _sequence(self) -> Sequence:
         _sequence_: Sequence
-        # sequence -> {+ term +}'ts =«mkSequence(ts)»
+        # sequence -> { term }'ts =«mkSequence(ts)»
         ts: list[Expr]
         ts = []
-        while True:
+        while self.current() in {
+            "(",
+            "=",
+            "[",
+            "break",
+            "continue",
+            "{",
+            "{*",
+            "{+",
+            "CODE",
+            "ID",
+            "STR",
+        }:
             ts_element_ = self._term()
             ts.append(ts_element_)
-            if not (
-                self.current()
-                in {
-                    "(",
-                    "=",
-                    "[",
-                    "break",
-                    "continue",
-                    "{",
-                    "{*",
-                    "{+",
-                    "CODE",
-                    "ID",
-                    "STR",
-                }
-            ):
-                break
         _sequence_ = mkSequence(ts)
         return _sequence_
 

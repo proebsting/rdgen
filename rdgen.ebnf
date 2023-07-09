@@ -33,7 +33,7 @@ alternation:
 %% sequence.return = "Sequence"
 %% sequence.ts = "list[Expr]"
 sequence: 
-    {+ term +}'ts
+    { term }'ts
     =<< mkSequence(ts) >> 
     .
 

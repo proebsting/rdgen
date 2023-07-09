@@ -50,7 +50,7 @@ class Inference:
     # 5. the value of the last term
     def sequence(self, x: Sequence, target: Optional[Target]):
         assert x.name is None
-        if isinstance(x.seq.cdr, Lambda):
+        if isinstance(x.seq, Cons) and isinstance(x.seq.cdr, Lambda):
             x.seq.car.keep0 = True
         self.infer(x.seq, target)
 
