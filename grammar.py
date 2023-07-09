@@ -1,4 +1,5 @@
-from typing import NamedTuple, Optional, List, Callable, Any, Set
+from typing import NamedTuple, Optional, List, Callable, Any, Set, Dict
+from collections import defaultdict
 
 from ir import Stmt
 
@@ -216,8 +217,6 @@ def repr_seq(e: Expr, lis: list[str]):
         repr_seq(e.cdr, lis)
     elif isinstance(e, Lambda):
         pass
-    # elif isinstance(e, Alts):
-    #     L.append(f"( {repr(e)} )")
     else:
         lis.append(e.__repr__())
 
@@ -269,13 +268,6 @@ class Sym(Expr):
 
     def nameOf(self) -> str:
         return f"Sym({self.value})"
-
-    # def isterminal(self, state: State) -> bool:
-    #     if self.value in state.nonterms:
-    #         return False
-    #     else:
-    #         state.terms.add(self.value)
-    #         return True
 
     def dump(self, indent: str) -> None:
         print(indent, self.dump0())
@@ -444,18 +436,42 @@ class Infinite(Loop):
 class Production:
     def __init__(self, lhs: str, rhs: Expr):
         self.lhs: str = lhs
-        self.rhs: Expr = rhs
+        self.rhs: Sequence = mkSequence([rhs])
 
     def dump(self):
         print(self.lhs, " -> ")
         self.rhs.dump("  ")
 
 
+def mkOr(prods: List[Production]) -> Sequence:
+    if len(prods) == 1:
+        return prods[0].rhs
+    alts: List[Sequence] = []
+    for p in prods:
+        match p.rhs:
+            case Sequence(seq=Cons(car=Alts(vals=vals), cdr=Lambda())):
+                alts.extend(vals)
+            case _:
+                alts.append(p.rhs)
+    return mkSequence([Alts(alts)])
+
+
+def merge_duplicate_lhs(productions: list[Production]) -> list[Production]:
+    bylhs: Dict[str, List[Production]] = defaultdict(list)
+    for p in productions:
+        bylhs[p.lhs].append(p)
+    merged: List[Production] = []
+    for lhs, prods in bylhs.items():
+        v = mkOr(prods)
+        merged.append(Production(lhs, v))
+    return merged
+
+
 class Spec:
-    def __init__(self, preamble: List[str], productions: list[Production]):
+    def __init__(self, preamble: List[str], prods: list[Production]):
         self.preamble = preamble
-        self.productions = productions
-        self.nonterms: Set[str] = set(p.lhs for p in productions)
+        self.nonterms: Set[str] = set(p.lhs for p in prods)
+        self.productions: list[Production] = merge_duplicate_lhs(prods)
 
     def dump(self):
         for p in self.preamble:
