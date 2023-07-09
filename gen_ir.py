@@ -19,6 +19,7 @@ from grammar import (
     Value,
     Infinite,
     Target,
+    Loop,
 )
 
 import ir
@@ -96,34 +97,28 @@ class Emitter:
         else:
             return ir.Empty()
 
-    def rep(self, x: Rep) -> List[ir.Stmt]:
+    def loop_shared(
+        self, x: Loop, before: Optional[ir.Guard], after: Optional[ir.Guard]
+    ) -> List[ir.Stmt]:
         warnings: list[ir.Warning] = [
             ir.Warning(w) for w in self.state.warnings[x]
         ]
         init = self.loop_simple(x.target, x.simple)
-        guard: ir.Guard = ir.Guard(x.val.predict)
-        tmps = [x.element] if x.element else None
+        tmps: list[str] | None = [x.element] if x.element else None
         body: List[ir.Stmt] = self.sequence(x.val, tmps)
-        loop = ir.Loop(guard, body, None)
+        loop = ir.Loop(before, body, after)
         return [init] + warnings + [loop] + self.epilogue(x)
+
+    def rep(self, x: Rep) -> List[ir.Stmt]:
+        guard: ir.Guard = ir.Guard(x.val.predict)
+        return self.loop_shared(x, guard, None)
 
     def oneplus(self, x: OnePlus) -> List[ir.Stmt]:
-        warnings: list[ir.Warning] = [
-            ir.Warning(w) for w in self.state.warnings[x]
-        ]
-        init = self.loop_simple(x.target, x.simple)
         guard: ir.Guard = ir.Guard(x.val.predict)
-        tmps = [x.element] if x.element else None
-        body: List[ir.Stmt] = self.sequence(x.val, tmps)
-        loop = ir.Loop(None, body, guard)
-        return [init] + warnings + [loop] + self.epilogue(x)
+        return self.loop_shared(x, None, guard)
 
     def infinite(self, x: Infinite) -> List[ir.Stmt]:
-        init = self.loop_simple(x.target, x.simple)
-        tmps = [x.element] if x.element else None
-        body: List[ir.Stmt] = self.sequence(x.val, tmps)
-        loop = ir.Loop(None, body, None)
-        return [init] + [loop] + self.epilogue(x)
+        return self.loop_shared(x, None, None)
 
     def _break(self, x: Break) -> List[ir.Stmt]:
         return [ir.Break()]
