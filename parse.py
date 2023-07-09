@@ -1,20 +1,20 @@
 from grammar import (
+    mkAlts,
+    mkSequence,
     Production,
+    Infinite,
     Value,
     Alts,
     Sym,
     Opt,
     Rep,
     Parens,
-    Lambda,
-    Cons,
     Spec,
     Break,
     Expr,
     Continue,
     OnePlus,
     Sequence,
-    Infinite,
 )
 
 from typing import NoReturn
@@ -43,28 +43,30 @@ class Parser:
         return v
 
     def _spec(self) -> Spec:
-        # spec -> { code }'preamble grammar'g =«Spec(preamble,g)»
+        _spec_: Spec
+        # spec -> { code }'preamble grammar'grammar =«Spec(preamble,grammar)»
         preamble: list[str]
         preamble = []
         while self.current() in {"CODE"}:
             preamble_element_ = self._code()
             preamble.append(preamble_element_)
-        g = self._grammar()
-        _spec_ = Spec(preamble, g)
+        grammar = self._grammar()
+        _spec_ = Spec(preamble, grammar)
         return _spec_
 
     def _grammar(self) -> list[Production]:
-        # grammar -> production'p { production }'prods =«[p]+prods»
-        prods: list[Production]
-        p = self._production()
-        prods = []
-        while self.current() in {"ID"}:
-            prods_element_ = self._production()
-            prods.append(prods_element_)
-        _grammar_ = [p] + prods
+        _grammar_: list[Production]
+        # grammar -> {+ production +}
+        _grammar_ = []
+        while True:
+            None_element_ = self._production()
+            _grammar_.append(None_element_)
+            if not (self.current() in {"ID"}):
+                break
         return _grammar_
 
     def _production(self) -> Production:
+        _production_: Production
         # production -> id'lhs ":" alternation'rhs "." =«Production(lhs, rhs)»
         lhs = self._id()
         self.match(":")
@@ -74,41 +76,49 @@ class Parser:
         return _production_
 
     def _alternation(self) -> Alts | Sequence:
-        # alternation -> sequence'x { "|" =sequence }'seqs =«Alts([x]+seqs) if seqs else x»
+        _alternation_: Alts | Sequence
+        # alternation -> {* =sequence [ break ] "|" *}'seqs =«mkAlts(seqs)»
         seqs: list[Sequence]
-        x = self._sequence()
         seqs = []
-        while self.current() in {"|"}:
-            self.match("|")
+        while True:
             seqs_element_ = self._sequence()
             seqs.append(seqs_element_)
-        _alternation_ = Alts([x] + seqs) if seqs else x
+            if self.current() in {")", "*}", "+}", ".", "]", "}"}:
+                break
+            self.match("|")
+        _alternation_ = mkAlts(seqs)
         return _alternation_
 
     def _sequence(self) -> Sequence:
-        # sequence -> term't «ret = last = Cons(t, Lambda())» { term't «last.cdr = Cons(t, last.cdr)» «last = last.cdr» }! =«Sequence(ret)»
-        t = self._term()
-        ret = last = Cons(t, Lambda())
-        while self.current() in {
-            "(",
-            "=",
-            "[",
-            "break",
-            "continue",
-            "{",
-            "{+",
-            "{*",
-            "CODE",
-            "ID",
-            "STR",
-        }:
-            t = self._term()
-            last.cdr = Cons(t, last.cdr)
-            last = last.cdr
-        _sequence_ = Sequence(ret)
+        _sequence_: Sequence
+        # sequence -> {+ term +}'ts =«mkSequence(ts)»
+        ts: list[Expr]
+        ts = []
+        while True:
+            ts_element_ = self._term()
+            ts.append(ts_element_)
+            if not (
+                self.current()
+                in {
+                    "(",
+                    "=",
+                    "[",
+                    "break",
+                    "continue",
+                    "{",
+                    "{*",
+                    "{+",
+                    "CODE",
+                    "ID",
+                    "STR",
+                }
+            ):
+                break
+        _sequence_ = mkSequence(ts)
         return _sequence_
 
     def _term(self) -> Expr:
+        _term_: Expr
         # term -> [ "=" ]'at =base't [ "!" ]'simple [ "'" =id ]'name «t.keep   = at is not None» «t.simple = simple is not None» «t.name   = name or None»
         at = None
         if self.current() in {"="}:
@@ -128,7 +138,8 @@ class Parser:
         return _term_
 
     def _base(self) -> Expr:
-        # base -> "(" alternation'v ")" =«Parens(v)» | "{" alternation'v "}" =«Rep(v)» | "[" alternation'v "]" =«Opt(v)» | "{+" alternation'v "+}" =«OnePlus(v)» | id'id =«Sym(id)» | str's =«Sym(s)» | code'code =«Value(code)» | "break" =«Break()» | "continue" =«Continue()»
+        _base_: Expr
+        # base -> "(" alternation'v ")" =«Parens(v)» | "{" alternation'v "}" =«Rep(v)» | "[" alternation'v "]" =«Opt(v)» | "{+" alternation'v "+}" =«OnePlus(v)» | "{*" alternation'v "*}" =«Infinite(v)» | id'id =«Sym(id)» | string'string =«Sym(string)» | code'code =«Value(code)» | "break" =«Break()» | "continue" =«Continue()»
         if self.current() in {"("}:
             self.match("(")
             v = self._alternation()
@@ -158,8 +169,8 @@ class Parser:
             id = self._id()
             _base_ = Sym(id)
         elif self.current() in {"STR"}:
-            s = self._str()
-            _base_ = Sym(s)
+            string = self._string()
+            _base_ = Sym(string)
         elif self.current() in {"CODE"}:
             code: str
             code = self._code()
@@ -175,19 +186,21 @@ class Parser:
         return _base_
 
     def _code(self) -> str:
+        _code_: str
         # code -> CODE'c =«c.value.strip()»
         c = self.match("CODE")
         _code_ = c.value.strip()
         return _code_
 
     def _id(self) -> str:
+        _id_: str
         # id -> ID'id =«id.value»
         id = self.match("ID")
         _id_ = id.value
         return _id_
 
-    def _str(self) -> str:
-        # str -> STR'id =«id.value»
+    def _string(self):
+        # string -> STR'id =«id.value»
         id = self.match("STR")
-        _str_ = id.value
-        return _str_
+        _string_ = id.value
+        return _string_

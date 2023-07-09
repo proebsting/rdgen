@@ -117,12 +117,15 @@ class Emitter:
 
     def function(self, f: Function) -> None:
         rettype: str = (
-            " -> " + self.types[f.name]["return"]
+            self.types[f.name]["return"]
             if "return" in self.types[f.name]
             else ""
         )
-        self.emit(f"{self.indent}def {self.prefix}{f.name}(self){rettype}:")
+        retdecl: str = f"->{rettype}" if rettype else ""
+        self.emit(f"{self.indent}def {self.prefix}{f.name}(self){retdecl}:")
         self.current = self.types[f.name]
+        if rettype:
+            self.emit(f"{self.indent * 2}_{f.name}_: {rettype}")
         for s in f.body:
             self.stmt(s, self.indent * 2)
         self.emit()

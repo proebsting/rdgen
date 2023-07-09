@@ -1,19 +1,17 @@
-<< from grammar import Production,Infinite,Value,Alts,Sym,Opt,Rep,Parens,Lambda,Cons,Spec,Break,Expr,Continue,OnePlus,Sequence >>
+<< from grammar import mkAlts,mkSequence,Production,Infinite,Value,Alts,Sym,Opt,Rep,Parens,Spec,Break,Expr,Continue,OnePlus,Sequence >>
 
 %% spec.return = "Spec"
 %% spec.preamble = "list[str]"
 spec:
     { code }'preamble
-    grammar'g
-    = << Spec(preamble,g) >>
+    grammar
+    = << Spec(preamble,grammar) >>
     .
 
 %% grammar.return = "list[Production]"
 %% grammar.prods = "list[Production]"
 grammar:
-    production'p 
-    { production }'prods
-    = << [p]+prods >> 
+    {+ production +}
     .
 
 %% production.return = "Production"
@@ -28,22 +26,15 @@ production:
 %% alternation.return = "Alts | Sequence"
 %% alternation.seqs = "list[Sequence]"
 alternation: 
-    sequence'x 
-    { "|" =sequence }'seqs
-    =<< Alts([x]+seqs) if seqs else x >>
+    {* =sequence [break] "|" *}'seqs
+    =<< mkAlts(seqs) >>
     .
 
 %% sequence.return = "Sequence"
-%% sequence.prologue = "list[str]"
+%% sequence.ts = "list[Expr]"
 sequence: 
-    term't
-    << ret = last = Cons(t, Lambda()) >>
-    {
-        term't              
-        << last.cdr = Cons(t, last.cdr) >> 
-        << last = last.cdr              >> 
-    } !
-    = << Sequence(ret) >> 
+    {+ term +}'ts
+    =<< mkSequence(ts) >> 
     .
 
 %% term.return = "Expr"
@@ -66,13 +57,13 @@ base:
     | "[" alternation'v "]"   =<< Opt(v)     >>
     | "{+" alternation'v "+}" =<< OnePlus(v) >>
     | "{*" alternation'v "*}" =<< Infinite(v) >>
-    | id'id                   =<< Sym(id)    >>
-    | str's                   =<< Sym(s)     >>
+    | id                      =<< Sym(id)    >>
+    | string                  =<< Sym(string) >>
     | code                    =<< Value(code) >>
     | "break"                 =<< Break()    >>
     | "continue"              =<< Continue() >>
     .
 
-code: CODE'c   =<< c.value.strip() >> .        %% code.return = "str"
-id  : ID'id    =<< id.value        >> .        %% id.return  = "str"
-str : STR'id   =<< id.value        >> .        %% str.return = "str"
+code   : CODE'c   =<< c.value.strip() >> .        %% code.return = "str"
+id     : ID'id    =<< id.value        >> .        %% id.return  = "str"
+string : STR'id   =<< id.value        >> .        %% str.return = "str"

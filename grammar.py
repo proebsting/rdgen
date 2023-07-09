@@ -125,6 +125,14 @@ class Sequence(Expr):
         return L
 
 
+def mkSequence(exprs: List[Expr]) -> Sequence:
+    seq: Seq0 = Lambda()
+    for x in reversed(exprs):
+        seq = Cons(x, seq)
+    assert isinstance(seq, Cons)
+    return Sequence(seq)
+
+
 class Lambda(Seq0):
     def __init__(self):
         pass
@@ -192,6 +200,13 @@ class Alts(Expr):
         for i, v in enumerate(self.vals):
             print(f"{indent}#{i}:")
             v.dump(indent + "  ")
+
+
+def mkAlts(exprs: List[Sequence]) -> Alts | Sequence:
+    if len(exprs) == 1:
+        return exprs[0]
+    else:
+        return Alts(exprs)
 
 
 def repr_seq(e: Expr, lis: list[str]):
