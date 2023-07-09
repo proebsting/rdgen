@@ -134,6 +134,7 @@ class Emitter:
         prologue: str = f"""
 from typing import NoReturn
 from scanner import Scanner, Token
+import sys
 class Parser:
     def __init__(self, scanner:Scanner, debug:bool=False):
         self.scanner:Scanner = scanner

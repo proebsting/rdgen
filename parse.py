@@ -19,6 +19,7 @@ from grammar import (
 
 from typing import NoReturn
 from scanner import Scanner, Token
+import sys
 
 
 class Parser:
