@@ -1,4 +1,4 @@
-<< from grammar import Production,Alts,Sym,Opt,Rep,Parens,Lambda,Cons,Spec,Break,Expr,Continue,OnePlus,Sequence >>
+<< from grammar import Production,Value,Alts,Sym,Opt,Rep,Parens,Lambda,Cons,Spec,Break,Expr,Continue,OnePlus,Sequence >>
 
 %% spec.return = "Spec"
 %% spec.preamble = "list[str]"
@@ -29,14 +29,13 @@ production:
 %% alternation.seqs = "list[Sequence]"
 alternation: 
     sequence'x 
-    { "|" @sequence }'seqs
+    { "|" =sequence }'seqs
     =<< Alts([x]+seqs) if seqs else x >>
     .
 
 %% sequence.return = "Sequence"
 %% sequence.prologue = "list[str]"
 sequence: 
-    { code }'prologue 
     term't
     << ret = last = Cons(t, Lambda()) >>
     {
@@ -44,25 +43,23 @@ sequence:
         << last.cdr = Cons(t, last.cdr) >> 
         << last = last.cdr              >> 
     } !
-    [ "=" @code ]'c
-    = << Sequence(prologue, ret, c) >> 
+    = << Sequence(ret) >> 
     .
 
 %% term.return = "Expr"
 %% term.stmts = "list[str]"
 term: 
-    [ "@" ]     'at 
-    @base       't 
+    [ "=" ]     'at 
+    =base       't 
     [ "!" ]     'simple
-    [ "'" @id ] 'name 
-    { code }    'stmts
+    [ "'" =id ] 'name 
     << t.keep   = at is not None       >>
     << t.simple = simple is not None   >>
     << t.name   = name or None         >>
-    << t.stmts  = stmts                >>
     .
 
 %% base.return = "Expr"
+%% base.code = "str"
 base:
     "(" alternation'v ")"     =<< Parens(v)  >>
     | "{" alternation'v "}"   =<< Rep(v)     >>
@@ -70,6 +67,7 @@ base:
     | "{+" alternation'v "+}" =<< OnePlus(v) >>
     | id'id                   =<< Sym(id)    >>
     | str's                   =<< Sym(s)     >>
+    | code                    =<< Value(code) >>
     | "break"                 =<< Break()    >>
     | "continue"              =<< Continue() >>
     .

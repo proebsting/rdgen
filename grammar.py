@@ -13,8 +13,9 @@ class Expr:
     # code generation directives
     name: Optional[str] = None
     keep: bool = False
-    stmts: List[str] = []
     simple: bool = False
+
+    keep0: bool = False  # default keep
 
     # inherited target for computed value
     target: Optional[str] = None
@@ -30,14 +31,27 @@ class Expr:
         )
 
     def __repr__(self) -> str:
+        s = self.basic_repr()
+        return self.decorate(s)
+
+    def basic_repr(self) -> str:
         assert False, (
-            "Expr.__repr__() not implemented for " + self.__class__.__name__
+            "Expr.basic_repr() not implemented for " + self.__class__.__name__
         )
 
     def dump(self, indent: str) -> None:
         assert False, (
             "Expr.dump() not implemented for " + self.__class__.__name__
         )
+
+    def decorate(self, s: str) -> str:
+        if self.keep:
+            s = f"={s}"
+        if self.simple:
+            s = f"{s}!"
+        if self.name:
+            s = f"{s}'{self.name}"
+        return s
 
     def nameOf(self) -> str:
         return self.__class__.__name__
@@ -49,9 +63,9 @@ class Expr:
             s += f" name: {self.name}"
         if self.keep:
             s += f" keep: {self.keep}"
-        if isinstance(self, Sequence):
-            if self.code:
-                s += f" code: {self.code}"
+        # if isinstance(self, Sequence):
+        #     if self.code:
+        #         s += f" code: {self.code}"
         return s
 
     def dump_flat(self, indent: str):
@@ -67,12 +81,8 @@ class Seq0(Expr):
 
 
 class Sequence(Expr):
-    def __init__(
-        self, prologue: List[str], seq: "Cons", code: Optional[str]
-    ) -> None:
+    def __init__(self, seq: "Cons") -> None:
         self.seq: Cons = seq
-        self.code: Optional[str] = code
-        self.prologue: List[str] = prologue
 
         # possible inferred values for the sequence
         self.at_term: Optional[str] = None
@@ -90,7 +100,7 @@ class Sequence(Expr):
         self.seq.visit(pre, post, arg)
         post(self, arg)
 
-    def __repr__(self):
+    def basic_repr(self):
         L: list[str] = []
         repr_seq(self.seq, L)
         return " ".join(L)
@@ -121,7 +131,7 @@ class Lambda(Seq0):
         pre(self, arg)
         post(self, arg)
 
-    def __repr__(self) -> str:
+    def basic_repr(self) -> str:
         return ""
 
     def dump(self, indent: str) -> None:
@@ -143,7 +153,7 @@ class Parens(Expr):
         self.e.visit(pre, post, arg)
         post(self, arg)
 
-    def __repr__(self):
+    def basic_repr(self):
         return f"({self.e.__repr__()})"
 
     def dump(self, indent: str):
@@ -167,7 +177,7 @@ class Alts(Expr):
             v.visit(pre, post, arg)
         post(self, arg)
 
-    def __repr__(self):
+    def basic_repr(self):
         return f'{" | ".join(repr(v) for v in self.vals)}'
 
     def dump(self, indent: str):
@@ -186,7 +196,7 @@ def repr_seq(e: Expr, lis: list[str]):
     # elif isinstance(e, Alts):
     #     L.append(f"( {repr(e)} )")
     else:
-        lis.append(repr(e))
+        lis.append(e.__repr__())
 
 
 class Cons(Seq0):
@@ -207,7 +217,7 @@ class Cons(Seq0):
         self.cdr.visit(pre, post, arg)
         post(self, arg)
 
-    def __repr__(self):
+    def basic_repr(self):
         L: list[str] = []
         repr_seq(self, L)
         return " ".join(L)
@@ -231,7 +241,7 @@ class Sym(Expr):
         pre(self, arg)
         post(self, arg)
 
-    def __repr__(self):
+    def basic_repr(self):
         return self.value
 
     def nameOf(self) -> str:
@@ -243,6 +253,26 @@ class Sym(Expr):
     #     else:
     #         state.terms.add(self.value)
     #         return True
+
+    def dump(self, indent: str) -> None:
+        print(indent, self.dump0())
+
+
+class Value(Expr):
+    def __init__(self, value: str):
+        self.value = value
+
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        post(self, arg)
+
+    def basic_repr(self) -> str:
+        return f"«{self.value}»"
 
     def dump(self, indent: str) -> None:
         print(indent, self.dump0())
@@ -267,7 +297,7 @@ class Rep(Loop):
         self.val.visit(pre, post, arg)
         post(self, arg)
 
-    def __repr__(self):
+    def basic_repr(self):
         return "{" + f" {self.val.__repr__()} " + "}"
 
     def dump(self, indent: str):
@@ -289,7 +319,7 @@ class Opt(Expr):
         self.val.visit(pre, post, arg)
         post(self, arg)
 
-    def __repr__(self):
+    def basic_repr(self):
         return f"[ {self.val.__repr__()} ]"
 
     def dump(self, indent: str):
@@ -305,7 +335,7 @@ class Break(Exit):
     def __init__(self):
         pass
 
-    def __repr__(self):
+    def basic_repr(self):
         return "break"
 
     def visit(
@@ -325,7 +355,7 @@ class Continue(Exit):
     def __init__(self):
         pass
 
-    def __repr__(self):
+    def basic_repr(self):
         return "continue"
 
     def visit(
@@ -346,7 +376,7 @@ class OnePlus(Loop):
         self.val = val
         self.element: Optional[str] = None
 
-    def __repr__(self):
+    def basic_repr(self):
         return f"{{ {self.val.__repr__()} }}"
 
     def visit(

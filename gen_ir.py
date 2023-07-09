@@ -16,6 +16,7 @@ from grammar import (
     OnePlus,
     Sequence,
     Seq0,
+    Value,
 )
 
 import ir
@@ -42,7 +43,7 @@ class Emitter:
         self.verbose: bool = verbose
 
     def epilogue(self, x: Expr) -> List[ir.Stmt]:
-        stmts: list[ir.Stmt] = [ir.Corn(c) for c in x.stmts]
+        stmts: list[ir.Stmt] = []
         if x.name and x.target:
             append(stmts, ir.mkCopy(x.target, x.name))
         return stmts
@@ -72,14 +73,20 @@ class Emitter:
 
     def sequence(self, x: Sequence) -> List[ir.Stmt]:
         decls: List[ir.Decl] = []
-        stmts: List[ir.Stmt] = [ir.Corn(p) for p in x.prologue]
+        stmts: List[ir.Stmt] = []
         self.cons0(x.seq, decls, stmts)
-        if x.code and x.target:
-            cp: ir.Copy | None = ir.mkCopy(x.target, x.code)
-            if cp:
-                append(stmts, cp)
+        # if x.code and x.target:
+        #     cp: ir.Copy | None = ir.mkCopy(x.target, x.code)
+        #     if cp:
+        #         append(stmts, cp)
         seq = ir.Sequence(decls, stmts)
         return [seq] + self.epilogue(x)
+
+    def value(self, x: Value) -> List[ir.Stmt]:
+        if x.target:
+            return [ir.Copy(x.target, x.value)]
+        else:
+            return [ir.Corn(x.value)]
 
     def loop_simple(
         self, name: Optional[str], simple: bool, element: Optional[str]
@@ -165,6 +172,8 @@ class Emitter:
                 retval = self.parens(e)
             case Lambda():
                 retval = self.lambda_(e)
+            case Value():
+                retval = self.value(e)
             case Break():
                 retval = self._break(e)
             case Continue():

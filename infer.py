@@ -14,7 +14,7 @@ from grammar import (
     Continue,
     OnePlus,
     Sequence,
-    Seq0,
+    Value,
 )
 
 
@@ -37,73 +37,19 @@ class Inference:
             self.infer(v, target)
 
     # in order, the value of a sequence is
-    # 1. whatever =<<code>> produces
-    # 2. all @terms
+    # 2. all =terms
     # 5. the value of the last term
     def sequence(self, x: Sequence, target: Optional[str]):
         assert x.name is None
-        x.target = target
-        if x.code is not None:
-            target = None
-        if x.code is None and isinstance(x.seq.cdr, Lambda):
-            self.infer(x.seq.car, target)
-        else:
-            p: Seq0 = x.seq
-            while isinstance(p, Cons):
-                t = target if p.car.keep else None
-                self.infer(p.car, t)
-                p = p.cdr
+        if isinstance(x.seq.cdr, Lambda):
+            x.seq.car.keep0 = True
+        self.infer(x.seq, target)
 
     def cons(self, x: Cons, target: Optional[str]):
         assert x.name is None
-        self.infer(x.car, None)
-        self.infer(x.cdr, None)
-
-    # IGNORE: The following is obsolete!!!!
-    # in order, the value of a sequence is
-    # 1. whatever =<<code>> produces
-    # 2. the single @term
-    # 3. a tuple of multiple @terms
-    # 4. a dictionary of all the named terms
-    # 5. the value of the singleton term
-    # 6. None
-    def create_assignment(self, x: Sequence, target: Optional[str]):
-        """this has side effects!"""
-        x.target = target
-        if target is None:
-            return
-        if x.code is not None:
-            return
-
-        names: List[Expr] = [
-            c.car for c in x.filter(lambda x: x.car.name is not None)
-        ]
-        keeps: List[Expr] = [c.car for c in x.filter(lambda x: x.car.keep)]
-
-        cons = x.seq
-
-        if len(keeps) > 0:
-            if len(keeps) == 1:
-                k = keeps[0]
-                if not k.name:
-                    assert not isinstance(k, Cons)
-                    k.name = target
-                x.at_term = k.name
-            else:
-                knames: List[str] = []
-                for _, k in enumerate(keeps):
-                    if not k.name:
-                        assert not isinstance(k, Cons)
-                        # k.name = f"_tmp{i}_{id(x)}"  # must fix
-                        k.name = self.mk_tmp(x)
-                    knames.append(k.name)
-                x.tuple = knames
-        if len(names) > 0:
-            x.dict = [n.name for n in names if n.name is not None]
-        if isinstance(cons.cdr, Lambda) and cons.name is None:
-            assert not isinstance(cons.car, Cons)
-            cons.car.name = target
-            x.singleton = target
+        tgt = target if x.car.keep or x.car.keep0 else None
+        self.infer(x.car, tgt)
+        self.infer(x.cdr, target)
 
     def rep(self, x: Rep, target: Optional[str]):
         x.target = target
@@ -164,6 +110,8 @@ class Inference:
             self.parens(e, target)
         elif isinstance(e, Lambda):
             pass
+        elif isinstance(e, Value):
+            e.target = target
         elif isinstance(e, Break):
             self._break(e, target)
         elif isinstance(e, OnePlus):

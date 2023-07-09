@@ -26,6 +26,8 @@ def noop(self: grammar.Expr, x: Any) -> None:
     match self:
         case grammar.Lambda():
             pass
+        case grammar.Value():
+            pass
         case grammar.Parens():
             pass
         case grammar.Alts():
@@ -70,6 +72,9 @@ def post_setup(self: grammar.Expr, x: Any) -> None:
     x.ancestors.pop()
     match self:
         case grammar.Lambda():
+            x.nullable[self] ^= Constant(True)
+            x.first[self] ^= Constant(set())
+        case grammar.Value():
             x.nullable[self] ^= Constant(True)
             x.first[self] ^= Constant(set())
         case grammar.Parens():
@@ -170,6 +175,8 @@ def compute_warnings(self: grammar.Expr, x: Any) -> None:
         case grammar.Break():
             pass
         case grammar.Lambda():
+            pass
+        case grammar.Value():
             pass
         case grammar.Parens():
             pass
