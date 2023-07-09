@@ -14,6 +14,7 @@ from grammar import (
     Continue,
     OnePlus,
     Sequence,
+    Infinite,
 )
 
 from typing import NoReturn
@@ -96,6 +97,7 @@ class Parser:
             "continue",
             "{",
             "{+",
+            "{*",
             "CODE",
             "ID",
             "STR",
@@ -147,6 +149,11 @@ class Parser:
             v = self._alternation()
             self.match("+}")
             _base_ = OnePlus(v)
+        elif self.current() in {"{*"}:
+            self.match("{*")
+            v = self._alternation()
+            self.match("*}")
+            _base_ = Infinite(v)
         elif self.current() in {"ID"}:
             id = self._id()
             _base_ = Sym(id)

@@ -3,9 +3,11 @@ import string
 
 keywords = {"break", "continue"}
 
-punctuation = {
+punctuation = [
     "{+",
     "+}",
+    "{*",
+    "*}",
     "=",
     "'",
     ".",
@@ -19,7 +21,7 @@ punctuation = {
     "|",
     "@",
     "!",
-}
+]
 
 delimited = [
     ('"', '"', "STR", False),

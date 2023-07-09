@@ -40,6 +40,8 @@ def noop(self: grammar.Expr, x: Any) -> None:
             pass
         case grammar.OnePlus():
             pass
+        case grammar.Infinite():
+            pass
         case grammar.Break():
             pass
         case grammar.Continue():
@@ -117,6 +119,11 @@ def post_setup(self: grammar.Expr, x: Any) -> None:
             x.first[self] ^= x.first[self.val]
 
             x.follow[self.val] ^= x.first[self] | x.follow[self]
+        case grammar.Infinite():
+            x.nullable[self] ^= x.nullable[self.val]
+            x.first[self] ^= x.first[self.val]
+
+            x.follow[self.val] ^= x.first[self]  # TODO
         case grammar.Opt():
             x.nullable[self] ^= Constant(True)
             x.first[self] ^= x.first[self.val]
@@ -166,6 +173,8 @@ def compute_warnings(self: grammar.Expr, x: Any) -> None:
                 x.warnings[self].append(f"AMBIGUOUS: with lookahead {(inter)}")
             if self.val.nullable:
                 x.warnings[self].append(f"AMBIGUOUS: Nullable Optional\n")
+        case grammar.Infinite():
+            pass
         case grammar.Opt():
             inter = self.val.first & self.follow
             if inter:

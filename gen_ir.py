@@ -17,6 +17,7 @@ from grammar import (
     Sequence,
     Seq0,
     Value,
+    Infinite,
 )
 
 import ir
@@ -118,6 +119,13 @@ class Emitter:
         loop = ir.Loop(None, body, guard)
         return [init] + warnings + [loop] + self.epilogue(x)
 
+    def infinite(self, x: Infinite) -> List[ir.Stmt]:
+        init, app = self.loop_simple(x.name or x.target, x.simple, x.element)
+        body: List[ir.Stmt] = self.expr(x.val)
+        body.append(app)
+        loop = ir.Loop(None, body, None)
+        return [init] + [loop] + self.epilogue(x)
+
     def _break(self, x: Break) -> List[ir.Stmt]:
         return [ir.Break()]
 
@@ -180,8 +188,10 @@ class Emitter:
                 retval = self._continue(e)
             case OnePlus():
                 retval = self.oneplus(e)
+            case Infinite():
+                retval = self.infinite(e)
             case Expr():
-                raise Exception("Expr not implemented")
+                raise Exception(f"Expr not implemented {e}")
         verbose: list[ir.Verbose] = [
             ir.Verbose(e.dump0()),
         ]

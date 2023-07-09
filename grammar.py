@@ -377,7 +377,30 @@ class OnePlus(Loop):
         self.element: Optional[str] = None
 
     def basic_repr(self):
-        return f"{{ {self.val.__repr__()} }}"
+        return f"{{+ {self.val.__repr__()} +}}"
+
+    def visit(
+        self,
+        pre: Callable[[Expr, Any], None],
+        post: Callable[[Expr, Any], None],
+        arg: Any = None,
+    ):
+        pre(self, arg)
+        self.val.visit(pre, post, arg)
+        post(self, arg)
+
+    def dump(self, indent: str):
+        print(indent + self.dump0())
+        self.val.dump(indent + "  ")
+
+
+class Infinite(Loop):
+    def __init__(self, val: Expr):
+        self.val = val
+        self.element: Optional[str] = None
+
+    def basic_repr(self):
+        return f"{{* {self.val.__repr__()} *}}"
 
     def visit(
         self,

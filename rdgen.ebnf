@@ -1,4 +1,4 @@
-<< from grammar import Production,Value,Alts,Sym,Opt,Rep,Parens,Lambda,Cons,Spec,Break,Expr,Continue,OnePlus,Sequence >>
+<< from grammar import Production,Infinite,Value,Alts,Sym,Opt,Rep,Parens,Lambda,Cons,Spec,Break,Expr,Continue,OnePlus,Sequence >>
 
 %% spec.return = "Spec"
 %% spec.preamble = "list[str]"
@@ -65,6 +65,7 @@ base:
     | "{" alternation'v "}"   =<< Rep(v)     >>
     | "[" alternation'v "]"   =<< Opt(v)     >>
     | "{+" alternation'v "+}" =<< OnePlus(v) >>
+    | "{*" alternation'v "*}" =<< Infinite(v) >>
     | id'id                   =<< Sym(id)    >>
     | str's                   =<< Sym(s)     >>
     | code                    =<< Value(code) >>

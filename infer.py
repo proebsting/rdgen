@@ -15,6 +15,7 @@ from grammar import (
     OnePlus,
     Sequence,
     Value,
+    Infinite,
 )
 
 
@@ -52,6 +53,15 @@ class Inference:
         self.infer(x.cdr, target)
 
     def rep(self, x: Rep, target: Optional[str]):
+        x.target = target
+        if not x.simple:
+            # x.element = f"_tmp_{x.name}_{id(x)}"
+            x.element = f"{x.name}_element_"
+            self.infer(x.val, x.element)
+        else:
+            self.infer(x.val, None)
+
+    def infinite(self, x: Infinite, target: Optional[str]):
         x.target = target
         if not x.simple:
             # x.element = f"_tmp_{x.name}_{id(x)}"
@@ -116,6 +126,8 @@ class Inference:
             self._break(e, target)
         elif isinstance(e, OnePlus):
             self.oneplus(e, target)
+        elif isinstance(e, Infinite):
+            self.infinite(e, target)
         elif isinstance(e, Continue):
             self._continue(e, target)
         elif isinstance(e, Sequence):
