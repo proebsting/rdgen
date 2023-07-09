@@ -126,6 +126,8 @@ class Sequence(Expr):
 
 
 def mkSequence(exprs: List[Expr]) -> Sequence:
+    if len(exprs) == 1 and isinstance(exprs[0], Sequence):
+        return exprs[0]
     seq: Seq0 = Lambda()
     for x in reversed(exprs):
         seq = Cons(x, seq)
@@ -302,12 +304,12 @@ class Value(Expr):
 
 class Loop(Expr):
     element: Optional[str]
-    val: Expr
+    val: Sequence
 
 
 class Rep(Loop):
     def __init__(self, val: Expr):
-        self.val = val
+        self.val = mkSequence([val])
         self.element: Optional[str] = None
 
     def visit(
@@ -396,7 +398,7 @@ class Continue(Exit):
 
 class OnePlus(Loop):
     def __init__(self, val: Expr):
-        self.val = val
+        self.val = mkSequence([val])
         self.element: Optional[str] = None
 
     def basic_repr(self):
@@ -419,7 +421,7 @@ class OnePlus(Loop):
 
 class Infinite(Loop):
     def __init__(self, val: Expr):
-        self.val = val
+        self.val = mkSequence([val])
         self.element: Optional[str] = None
 
     def basic_repr(self):

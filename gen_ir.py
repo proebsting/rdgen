@@ -75,14 +75,12 @@ class Emitter:
             stmts.extend(car)
             x = x.cdr
 
-    def sequence(self, x: Sequence) -> List[ir.Stmt]:
-        decls: List[ir.Decl] = []
+    def sequence(
+        self, x: Sequence, tmps: Optional[List[str]] = None
+    ) -> List[ir.Stmt]:
+        decls: List[ir.Decl] = [ir.Decl(t) for t in tmps] if tmps else []
         stmts: List[ir.Stmt] = []
         self.cons0(x.seq, decls, stmts)
-        # if x.code and x.target:
-        #     cp: ir.Copy | None = ir.mkCopy(x.target, x.code)
-        #     if cp:
-        #         append(stmts, cp)
         seq = ir.Sequence(decls, stmts)
         return [seq] + self.epilogue(x)
 
@@ -104,7 +102,8 @@ class Emitter:
         ]
         init = self.loop_simple(x.target, x.simple)
         guard: ir.Guard = ir.Guard(x.val.predict)
-        body: List[ir.Stmt] = self.expr(x.val)
+        tmps = [x.element] if x.element else None
+        body: List[ir.Stmt] = self.sequence(x.val, tmps)
         loop = ir.Loop(guard, body, None)
         return [init] + warnings + [loop] + self.epilogue(x)
 
@@ -114,13 +113,15 @@ class Emitter:
         ]
         init = self.loop_simple(x.target, x.simple)
         guard: ir.Guard = ir.Guard(x.val.predict)
-        body: List[ir.Stmt] = self.expr(x.val)
+        tmps = [x.element] if x.element else None
+        body: List[ir.Stmt] = self.sequence(x.val, tmps)
         loop = ir.Loop(None, body, guard)
         return [init] + warnings + [loop] + self.epilogue(x)
 
     def infinite(self, x: Infinite) -> List[ir.Stmt]:
         init = self.loop_simple(x.target, x.simple)
-        body: List[ir.Stmt] = self.expr(x.val)
+        tmps = [x.element] if x.element else None
+        body: List[ir.Stmt] = self.sequence(x.val, tmps)
         loop = ir.Loop(None, body, None)
         return [init] + [loop] + self.epilogue(x)
 
