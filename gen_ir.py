@@ -18,6 +18,7 @@ from grammar import (
     Seq0,
     Value,
     Infinite,
+    Target,
 )
 
 import ir
@@ -45,8 +46,8 @@ class Emitter:
 
     def epilogue(self, x: Expr) -> List[ir.Stmt]:
         stmts: list[ir.Stmt] = []
-        if x.name and x.target:
-            append(stmts, ir.mkCopy(x.target.name, x.name))
+        # if x.name and x.target:
+        #     append(stmts, ir.mkCopy(x.target.name, x.name))
         if x.target:
             stmts.extend(x.target.side_effect)
         return stmts
@@ -91,11 +92,9 @@ class Emitter:
         else:
             return [ir.Corn(x.value)]
 
-    def loop_simple(
-        self, name: Optional[str], simple: bool, element: Optional[str]
-    ) -> ir.Stmt:
-        if name and element and not simple:
-            return ir.AssignEmptyList(name)
+    def loop_simple(self, target: Optional[Target], simple: bool) -> ir.Stmt:
+        if target and not simple:
+            return ir.AssignEmptyList(target.name)
         else:
             return ir.Empty()
 
@@ -103,9 +102,7 @@ class Emitter:
         warnings: list[ir.Warning] = [
             ir.Warning(w) for w in self.state.warnings[x]
         ]
-        init = self.loop_simple(
-            x.name or (x.target and x.target.name), x.simple, x.element
-        )
+        init = self.loop_simple(x.target, x.simple)
         guard: ir.Guard = ir.Guard(x.val.predict)
         body: List[ir.Stmt] = self.expr(x.val)
         loop = ir.Loop(guard, body, None)
@@ -115,18 +112,14 @@ class Emitter:
         warnings: list[ir.Warning] = [
             ir.Warning(w) for w in self.state.warnings[x]
         ]
-        init = self.loop_simple(
-            x.name or (x.target and x.target.name), x.simple, x.element
-        )
+        init = self.loop_simple(x.target, x.simple)
         guard: ir.Guard = ir.Guard(x.val.predict)
         body: List[ir.Stmt] = self.expr(x.val)
         loop = ir.Loop(None, body, guard)
         return [init] + warnings + [loop] + self.epilogue(x)
 
     def infinite(self, x: Infinite) -> List[ir.Stmt]:
-        init = self.loop_simple(
-            x.name or (x.target and x.target.name), x.simple, x.element
-        )
+        init = self.loop_simple(x.target, x.simple)
         body: List[ir.Stmt] = self.expr(x.val)
         loop = ir.Loop(None, body, None)
         return [init] + [loop] + self.epilogue(x)
@@ -141,9 +134,8 @@ class Emitter:
         warnings: list[ir.Warning] = [
             ir.Warning(w) for w in self.state.warnings[x]
         ]
-        n: str | None = x.name or (x.target and x.target.name)
-        if n and not x.simple:
-            init = ir.AssignNull(n)
+        if x.target and not x.simple:
+            init = ir.AssignNull(x.target.name)
         else:
             init = ir.Empty()
 
@@ -156,9 +148,9 @@ class Emitter:
     def sym(self, x: Sym) -> List[ir.Stmt]:
         s: ir.Stmt
         if x.value in (self.state.terms):
-            s = ir.Terminal(x.name or (x.target and x.target.name), x.value)
+            s = ir.Terminal((x.target and x.target.name), x.value)
         else:
-            s = ir.NonTerminal(x.name or (x.target and x.target.name), x.value)
+            s = ir.NonTerminal((x.target and x.target.name), x.value)
         return [s] + self.epilogue(x)
 
     def parens(self, x: Parens) -> List[ir.Stmt]:

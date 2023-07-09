@@ -41,12 +41,13 @@ sequence:
 %% term.stmts = "list[str]"
 term: 
     [ "=" ]     'at 
-    =base       't 
+    base        't 
     [ "!" ]     'simple
     [ "'" =id ] 'name 
     << t.keep   = at is not None       >>
     << t.simple = simple is not None   >>
     << t.name   = name or None         >>
+    =<< t >>
     .
 
 %% base.return = "Expr"

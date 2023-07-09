@@ -59,8 +59,8 @@ class Parser:
         # grammar -> {+ production +}
         _grammar_ = []
         while True:
-            None_element_ = self._production()
-            _grammar_.append(None_element_)
+            _grammar__element_ = self._production()
+            _grammar_.append(_grammar__element_)
             if not (self.current() in {"ID"}):
                 break
         return _grammar_
@@ -119,12 +119,11 @@ class Parser:
 
     def _term(self) -> Expr:
         _term_: Expr
-        # term -> [ "=" ]'at =base't [ "!" ]'simple [ "'" =id ]'name «t.keep   = at is not None» «t.simple = simple is not None» «t.name   = name or None»
+        # term -> [ "=" ]'at base't [ "!" ]'simple [ "'" =id ]'name «t.keep   = at is not None» «t.simple = simple is not None» «t.name   = name or None» =«t»
         at = None
         if self.current() in {"="}:
             at = self.match("=")
         t = self._base()
-        _term_ = t
         simple = None
         if self.current() in {"!"}:
             simple = self.match("!")
@@ -135,6 +134,7 @@ class Parser:
         t.keep = at is not None
         t.simple = simple is not None
         t.name = name or None
+        _term_ = t
         return _term_
 
     def _base(self) -> Expr:
