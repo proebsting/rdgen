@@ -40,8 +40,9 @@ def create(args: argparse.Namespace) -> None:
         input = sys.stdin.read()
     pragmas: Dict[str, Any]
     spec, state, pragmas = process_grammar(input)
-    inferer = infer.Inference(spec.productions, args.verbose)
-    inferer.do_inference()
+    if args.decorate:
+        inferer = infer.Inference(spec.productions, args.verbose)
+        inferer.do_inference()
     # if args.output:
     #     with open(args.output, "w") as f:
     #         emitter = emit_python.Emitter(spec, state, f, args.verbose)
@@ -53,7 +54,9 @@ def create(args: argparse.Namespace) -> None:
     import gen_ir
     import emit_ir_python
 
-    ir_emitter = gen_ir.Emitter(spec, state, pragmas, args.verbose)
+    ir_emitter = gen_ir.Emitter(
+        spec, state, pragmas, args.verbose, args.decorate
+    )
     generated = ir_emitter.emit_parser(state)
     if args.output:
         with open(args.output, "w") as f:
@@ -120,6 +123,7 @@ def parse_args():
     create.add_argument(
         "--verbose", action="store_true", help="verbose output"
     )
+    create.add_argument("--decorate", action="store_true", help="decorate")
 
     examples = subparsers.add_parser(
         "examples", help="create a JSON file with example sentences"

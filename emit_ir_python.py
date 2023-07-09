@@ -135,11 +135,17 @@ class Emitter:
 from typing import NoReturn
 from scanner import Scanner, Token
 class Parser:
-    def __init__(self, scanner:Scanner):
+    def __init__(self, scanner:Scanner, debug:bool=False):
         self.scanner:Scanner = scanner
+        self.debug:bool = debug
 
     def error(self, msg: str)->NoReturn:
-        raise Exception(msg + " at " + str(self.scanner.peek()))
+        complete:str = msg + " at " + str(self.scanner.peek())
+        print(complete, file=sys.stderr)
+        if self.debug:
+            raise Exception(complete)
+        else:
+            sys.exit(1)
 
     def match(self, kind: str)->Token:
         if self.current() == kind:

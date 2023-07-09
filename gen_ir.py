@@ -38,11 +38,13 @@ class Emitter:
         state: State,
         pragmas: Dict[str, Any],
         verbose: bool,
+        decorate: bool,
     ):
         self.spec: Spec = spec
         self.state: State = state
         self.pragmas: Dict[str, Any] = pragmas
         self.verbose: bool = verbose
+        self.decorate: bool = decorate
 
     def alts(self, x: Alts) -> List[ir.Stmt]:
         guardeds: List[ir.Guarded] = []
@@ -186,9 +188,10 @@ class Emitter:
 
         name: str = p.lhs
         body: List[ir.Stmt] = self.expr(p.rhs)
-        target: str = f"_{name}_"
-        ret = ir.Return(target)
-        body.append(ret)
+        if self.decorate:
+            target: str = f"_{name}_"
+            ret = ir.Return(target)
+            body.append(ret)
         return ir.Function(name, preamble + body)
 
     def emit_parser(self, state: State) -> ir.Program:
