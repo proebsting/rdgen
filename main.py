@@ -1,114 +1,24 @@
-import sys
-import json
 import argparse
-from types import ModuleType
-import tomllib
-from typing import Tuple, Dict, Any
-
-from grammar import Spec, Production
 
 import gen_random
 import ascending
-
-import scanner
-
-# import emit
-import infer
-from parse import Parser
-
-import analysis
-
-
-def process_grammar(input: str) -> Tuple[Spec, analysis.State, Dict[str, Any]]:
-    lexer = scanner.Scanner(input)
-    concatenated = "\n".join(lexer.pragmas)
-    toml: Dict[str, Any] = tomllib.loads(concatenated)
-    p = Parser(lexer)
-    spec: Spec = p.parse()
-    g: list[Production] = spec.productions
-
-    state: analysis.State = analysis.analysis(g)
-
-    return spec, state, toml
-
-
-def create(args: argparse.Namespace) -> None:
-    if args.input:
-        with open(args.input, "r") as f:
-            input = f.read()
-    else:
-        input = sys.stdin.read()
-    pragmas: Dict[str, Any]
-    spec, state, pragmas = process_grammar(input)
-    if args.decorate:
-        inferer = infer.Inference(spec.productions, args.verbose)
-        inferer.do_inference()
-    # if args.output:
-    #     with open(args.output, "w") as f:
-    #         emitter = emit_python.Emitter(spec, state, f, args.verbose)
-    #         emitter.emit_parser(state)
-    # else:
-    #     emitter = emit_python.Emitter(spec, state, sys.stdout, args.verbose)
-    #     emitter.emit_parser(state)
-
-    import gen_ir
-    import emit_ir_python
-
-    ir_emitter = gen_ir.Emitter(
-        spec, state, pragmas, args.verbose, args.decorate
-    )
-    generated = ir_emitter.emit_parser(state)
-    if args.output:
-        with open(args.output, "w") as f:
-            py_emitter = emit_ir_python.Emitter(generated, f, args.verbose)
-            py_emitter.emit_program()
-    else:
-        py_emitter = emit_ir_python.Emitter(
-            generated, sys.stdout, args.verbose
-        )
-        py_emitter.emit_program()
-
-    if args.verbose:
-        spec.dump()
-
-
-def gen_examples(ns: ModuleType, args: argparse.Namespace) -> None:
-    if args.input:
-        with open(args.input, "r") as f:
-            input = f.read()
-    else:
-        input = sys.stdin.read()
-    g, state, _ = process_grammar(input)
-    L = ns.gen_examples(g, state, args.quantity, args.limit)
-    js = json.dumps(L, indent=2) + "\n"
-    if args.output:
-        with open(args.output, "w") as f:
-            f.write(js)
-    else:
-        sys.stdout.write(js)
-
-
-def examples(args: argparse.Namespace) -> None:
-    gen_examples(gen_random, args)
-
-
-def shortest(args: argparse.Namespace) -> None:
-    gen_examples(ascending, args)
+from create import create
+from sentences import gen_examples
 
 
 def main():
     args = parse_args()
     match args.command:
         case "create":
-            try:
-                create(args)
-            except Exception as e:
-                raise e
-                print(f"Error: {e}")
+            create(args.input, args.output, args.verbose, args.decorate)
         case "examples":
-            examples(args)
+            gen_examples(
+                ascending, args.input, args.output, args.quantity, args.limit
+            )
         case "shortest":
-            shortest(args)
+            gen_examples(
+                gen_random, args.input, args.output, args.quantity, args.limit
+            )
         case _:
             raise NotImplementedError(args.command)
 

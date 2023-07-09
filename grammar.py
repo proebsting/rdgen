@@ -437,9 +437,11 @@ class Production:
         self.lhs: str = lhs
         self.rhs: Sequence = mkSequence([rhs])
 
-    def dump(self):
-        print(self.lhs, " -> ")
-        self.rhs.dump("  ")
+    def dump(self, prefix: str):
+        import textwrap
+
+        print(textwrap.indent(str(self.lhs) + " -> ", prefix))
+        self.rhs.dump(prefix + "  ")
 
 
 def mkOr(prods: List[Production]) -> Sequence:
@@ -475,8 +477,10 @@ class Spec:
         self.nonterms: Set[str] = set(p.lhs for p in prods)
         self.productions: list[Production] = merge_duplicate_lhs(prods)
 
-    def dump(self):
+    def dump(self, prefix: str):
+        import textwrap
+
         for p in self.preamble:
-            print(p)
+            print(textwrap.indent(p, prefix))
         for p in self.productions:
-            p.dump()
+            p.dump(prefix)
