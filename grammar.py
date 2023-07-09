@@ -1,5 +1,4 @@
 from typing import NamedTuple, Optional, List, Callable, Any, Set, Dict
-from collections import defaultdict
 
 from ir import Stmt
 
@@ -456,14 +455,17 @@ def mkOr(prods: List[Production]) -> Sequence:
     return mkSequence([Alts(alts)])
 
 
+from itertools import groupby
+
+
 def merge_duplicate_lhs(productions: list[Production]) -> list[Production]:
-    bylhs: Dict[str, List[Production]] = defaultdict(list)
-    for p in productions:
-        bylhs[p.lhs].append(p)
-    merged: List[Production] = []
-    for lhs, prods in bylhs.items():
-        v = mkOr(prods)
-        merged.append(Production(lhs, v))
+    bylhs: Dict[str, List[Production]] = {
+        lhs: list(prods)
+        for lhs, prods in groupby(productions, key=lambda p: p.lhs)
+    }
+    merged: list[Production] = [
+        Production(lhs, mkOr(prods)) for lhs, prods in bylhs.items()
+    ]
     return merged
 
 
