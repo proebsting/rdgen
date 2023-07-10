@@ -130,7 +130,10 @@ class Emitter:
         self.emit(f"{self.indent}def {self.prefix}{f.name}(self){retdecl}:")
         self.current = self.types[f.name]
         if rettype:
-            self.emit(f"{self.indent * 2}_{f.name}_: {rettype}")
+            tname = f'_{f.name}_'
+            # self.emit(f"{self.indent * 2}{tname}: {rettype}")
+            if not tname in self.types[f.name]:
+                self.types[f.name][tname] = rettype
         self.emit_stmts(f.body, self.indent * 2)
         self.emit()
 

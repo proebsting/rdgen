@@ -187,11 +187,14 @@ class Emitter:
         ]
 
         name: str = p.lhs
-        body: List[ir.Stmt] = self.expr(p.rhs)
+        ret = []
+        tmps = []
         if self.decorate:
             target: str = f"_{name}_"
+            tmps = [target]
             ret = ir.Return(target)
-            body.append(ret)
+        body: List[ir.Stmt] = self.sequence(p.rhs,tmps)
+        body.append(ret)
         return ir.Function(name, preamble + body)
 
     def emit_parser(self, state: State) -> ir.Program:
