@@ -93,11 +93,8 @@ To cause code to be generated, add the `--decorate` option to the `create` comma
 Every sequence of elements of the right-hand side of a production represents a value.  It can be specified in two different ways.  In order, these are the ways (the first applicable rule is used):
 
 1. whatever is followed by a `=`
-
-  1. `= <<`*expr*`>>` produces, where *expr* is a valid one-line Python expression.
-
-  2. the value of the only element in the sequence preceded by an `=`
-
+   1. `= <<`*expr*`>>` produces, where *expr* is a valid one-line Python expression.
+   2. the value of the only element in the sequence preceded by an `=`
 5. the value of the singleton term
 
 By default, the value of `[` *sequence* `]` is `None` if the optional sequence isn't parsed, but it's the value of the sequence if it is parsed.  This can be overridden by putting `!` after the `]`.
