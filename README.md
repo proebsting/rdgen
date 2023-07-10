@@ -14,7 +14,7 @@ This is the EBNF grammar for the EBNF grammar to be processed by rdgen:
 grammar: production { production } .
 production: ID ":" alternation "." .
 alternation: sequence { "|" sequence } .
-sequence: term { term } .
+sequence: { term } .
 term: "(" alternation ")"
     | "{" alternation "}"
     | "[" alternation "]"
@@ -30,21 +30,22 @@ Note the following:
    * identifier symbols begin with a letter and then contain letters, digits, and underscores
    * string symbols begin and end with a double quote and contain any character except a double quote and newline.
 4. `EOF` is not part of the grammar.
-5. Only one production per nonterminal is allowed.
-6. All right-hand sides must be non-empty.
+5. Multiple productions per nonterminal are allowed.  `rdgen` will simply merge them into one production.
+6. While EBNF typically forbids empty sequences, `rdgen` allows them.  E.g., `foo: .` is allowed.
 
 
 ## Generating a Parser
 
 ```
-$ python3 main.py create -h
-usage: main.py create [-h] [--input INPUT] [--output OUTPUT] [--verbose]
+$ python3 main.py create --help
+usage: main.py create [-h] [--input INPUT] [--output OUTPUT] [--verbose] [--decorate]
 
 options:
   -h, --help       show this help message and exit
   --input INPUT    input file
   --output OUTPUT  output file
   --verbose        verbose output
+  --decorate       decorate
 ```
 
 If the grammar has LL(1) conflicts, they will be noted in the generated Python file with the word, "`AMBIGUOUS`".
@@ -83,16 +84,21 @@ The following has been implemented but is throughly untested.  (Note that "throu
 
 `rdgen` now supports the ability to add Python code in the grammar:
 
+### Creating code
+
+To cause code to be generated, add the `--decorate` option to the `create` command.  
+
 ### Computing Values
 
-Every sequence of elements of the right-hand side of a production represents a value.  It can be computed in a bunch of different ways.  In order, these are the ways (the first applicable rule is used):
+Every sequence of elements of the right-hand side of a production represents a value.  It can be specified in two different ways.  In order, these are the ways (the first applicable rule is used):
 
-1. whatever `= <<`*expr*`>>` produces, where *expr* is a valid one-line Python expression.
-2. the value of the only element in the sequence preceded by an `@`
-3. a tuple of multiple `@`-preceded elements in the sequence
-4. a dictionary of all the named terms in the sequence.  Terms are named by following them with `'`*id* where *id* is an identifier.
+1. whatever is followed by a `=`
+
+  1. `= <<`*expr*`>>` produces, where *expr* is a valid one-line Python expression.
+
+  2. the value of the only element in the sequence preceded by an `=`
+
 5. the value of the singleton term
-6. `None`
 
 By default, the value of `[` *sequence* `]` is `None` if the optional sequence isn't parsed, but it's the value of the sequence if it is parsed.  This can be overridden by putting `!` after the `]`.
 
