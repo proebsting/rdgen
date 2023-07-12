@@ -443,6 +443,20 @@ class Production:
         print(textwrap.indent(str(self.lhs) + " -> ", prefix))
         self.rhs.dump(prefix + "  ")
 
+    def dump_bnf(self, prefix: str):
+        print(f"{prefix}{self.lhs} -> {self.rhs.__repr__()}")
+        print(f"{prefix}    nullable: {self.rhs.nullable}")
+        print(f"{prefix}    first: {self.rhs.first}")
+        print(f"{prefix}    follow: {self.rhs.follow}")
+        match self.rhs:
+            case Sequence(seq=Cons(car=Alts(vals=vals), cdr=Lambda())):
+                for alt in vals:
+                    print(f"{prefix}     predict( {self.lhs} -> {alt} )")
+                    print(f"{prefix}       = {alt.predict}")
+            case _:
+                print(f"{prefix}    predict: {self.rhs.predict}")
+        print()
+
 
 def mkOr(prods: List[Production]) -> Sequence:
     if len(prods) == 1:
@@ -484,3 +498,5 @@ class Spec:
             print(textwrap.indent(p, prefix))
         for p in self.productions:
             p.dump(prefix)
+        for p in self.productions:
+            p.dump_bnf(prefix + "  ")
