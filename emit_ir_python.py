@@ -90,9 +90,12 @@ class Emitter:
                     test = "elif"
                     self.emit_stmts(g.body, indent1)
                 if error:
+                    all: set[str] = set(
+                        x for g in guardeds for x in g.guard.predict
+                    )
                     self.emit(f"{indent}else:")
                     self.emit(
-                        f"{indent1}self.error({term_repr(error.message)})"
+                        f"{indent1}self.error({repr(error.message)}, {all})"
                     )
             case Corn(value):
                 self.emit(f"{indent}{value}")
@@ -130,7 +133,7 @@ class Emitter:
         self.emit(f"{self.indent}def {self.prefix}{f.name}(self){retdecl}:")
         self.current = self.types[f.name]
         if rettype:
-            tname = f'_{f.name}_'
+            tname = f"_{f.name}_"
             # self.emit(f"{self.indent * 2}{tname}: {rettype}")
             if not tname in self.types[f.name]:
                 self.types[f.name][tname] = rettype
@@ -139,27 +142,33 @@ class Emitter:
 
     def emit_program(self) -> None:
         prologue: str = f"""
-from typing import NoReturn
-from scanner import Scanner, Token
-import sys
-class Parser:
-    def __init__(self, scanner:Scanner, debug:bool=False):
-        self.scanner:Scanner = scanner
-        self.debug:bool = debug
+from typing import NoReturn, Set
 
-    def error(self, msg: str)->NoReturn:
-        complete:str = msg + " at " + str(self.scanner.peek())
-        print(complete, file=sys.stderr)
-        if self.debug:
-            raise Exception(complete)
-        else:
-            sys.exit(1)
+class ParseErrorException(Exception):
+    msg : str
+    token : Token
+    expected : Set[str]
+    def __init__(self, msg: str, current:Token, expected:Set[str]):
+        self.msg = msg
+        self.current = current
+        self.expected = expected
+
+    def __str__(self):
+        return f"Parse error {{self.msg}} at {{self.current}}:  Expected {{self.expected}}"
+
+class Parser:
+    def __init__(self, scanner:Scanner):
+        self.scanner:Scanner = scanner
+
+    def error(self, msg: str, expected: Set[str])->NoReturn:
+        current:Token = self.scanner.peek()
+        raise ParseErrorException(msg, current, expected)
 
     def match(self, kind: str)->Token:
         if self.current() == kind:
             return self.scanner.consume()
         else:
-            self.error(f"expected {{kind}}")
+            self.error("", {{kind}})
 
     def current(self)->str:
         return self.scanner.peek().kind

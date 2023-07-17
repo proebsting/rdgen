@@ -10,7 +10,12 @@ def main():
     args = parse_args()
     match args.command:
         case "create":
-            create(args.input, args.output, args.verbose, args.decorate)
+            create(
+                args.input,
+                args.output,
+                args.verbose,
+                args.decorate,
+            )
         case "examples":
             gen_examples(
                 ascending, args.input, args.output, args.quantity, args.limit

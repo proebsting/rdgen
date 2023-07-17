@@ -1,4 +1,5 @@
 << from grammar import mkAlts,mkSequence,Production,Infinite,Value,Alts,Sym,Opt,Rep,Parens,Spec,Break,Expr,Continue,OnePlus,Sequence >>
+<< from scanner import Scanner, Token >>
 
 %% spec.return = "Spec"
 %% spec.preamble = "list[str]"

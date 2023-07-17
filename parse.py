@@ -16,10 +16,24 @@ from grammar import (
     OnePlus,
     Sequence,
 )
-
-from typing import NoReturn
 from scanner import Scanner, Token
+
+from typing import NoReturn, Set
 import sys
+
+
+class ParseErrorException(Exception):
+    msg: str
+    token: Token
+    expected: Set[str]
+
+    def __init__(self, msg: str, token: Token, expected: Set[str]):
+        self.msg = msg
+        self.token = token
+        self.expected = expected
+
+    def __str__(self):
+        return f"ParseError: expected {self.expected} at {self.token}"
 
 
 class Parser:
@@ -27,11 +41,12 @@ class Parser:
         self.scanner: Scanner = scanner
         self.debug: bool = debug
 
-    def error(self, msg: str) -> NoReturn:
-        complete: str = msg + " at " + str(self.scanner.peek())
+    def error(self, msg: str, expected: Set[str]) -> NoReturn:
+        current: Token = self.scanner.peek()
+        complete: str = msg + " at " + str(current)
         print(complete, file=sys.stderr)
         if self.debug:
-            raise Exception(complete)
+            raise ParseErrorException(complete, current, expected)
         else:
             sys.exit(1)
 
@@ -39,7 +54,7 @@ class Parser:
         if self.current() == kind:
             return self.scanner.consume()
         else:
-            self.error(f"expected {kind}")
+            self.error(f"expected {kind}", {kind})
 
     def current(self) -> str:
         return self.scanner.peek().kind
@@ -50,8 +65,8 @@ class Parser:
         return v
 
     def _spec(self) -> Spec:
-        _spec_: Spec
         # spec -> { code }'preamble grammar'grammar =«Spec(preamble,grammar)»
+        _spec_: Spec
         preamble: list[str]
         preamble = []
         while self.current() in {"CODE"}:
@@ -62,8 +77,8 @@ class Parser:
         return _spec_
 
     def _grammar(self) -> list[Production]:
-        _grammar_: list[Production]
         # grammar -> {+ production +}
+        _grammar_: list[Production]
         _grammar_ = []
         while True:
             _grammar__element_ = self._production()
@@ -73,8 +88,8 @@ class Parser:
         return _grammar_
 
     def _production(self) -> Production:
-        _production_: Production
         # production -> id'lhs ":" alternation'rhs "." =«Production(lhs, rhs)»
+        _production_: Production
         lhs = self._id()
         self.match(":")
         rhs = self._alternation()
@@ -83,8 +98,8 @@ class Parser:
         return _production_
 
     def _alternation(self) -> Alts | Sequence:
-        _alternation_: Alts | Sequence
         # alternation -> {* =sequence [ break ] "|" *}'seqs =«mkAlts(seqs)»
+        _alternation_: Alts | Sequence
         seqs: list[Sequence]
         seqs = []
         while True:
@@ -97,8 +112,8 @@ class Parser:
         return _alternation_
 
     def _sequence(self) -> Sequence:
-        _sequence_: Sequence
         # sequence -> { term }'ts =«mkSequence(ts)»
+        _sequence_: Sequence
         ts: list[Expr]
         ts = []
         while self.current() in {
@@ -120,8 +135,8 @@ class Parser:
         return _sequence_
 
     def _term(self) -> Expr:
-        _term_: Expr
         # term -> [ "=" ]'at base't [ "!" ]'simple [ "'" =id ]'name «t.keep   = at is not None» «t.simple = simple is not None» «t.name   = name or None» =«t»
+        _term_: Expr
         at = None
         if self.current() in {"="}:
             at = self.match("=")
@@ -140,8 +155,8 @@ class Parser:
         return _term_
 
     def _base(self) -> Expr:
-        _base_: Expr
         # base -> "(" alternation'v ")" =«Parens(v)» | "{" alternation'v "}" =«Rep(v)» | "[" alternation'v "]" =«Opt(v)» | "{+" alternation'v "+}" =«OnePlus(v)» | "{*" alternation'v "*}" =«Infinite(v)» | id'id =«Sym(id)» | string'string =«Sym(string)» | code'code =«Value(code)» | "break" =«Break()» | "continue" =«Continue()»
+        _base_: Expr
         if self.current() in {"("}:
             self.match("(")
             v = self._alternation()
@@ -184,19 +199,33 @@ class Parser:
             self.match("continue")
             _base_ = Continue()
         else:
-            self.error("syntax error")
+            self.error(
+                "syntax error",
+                {
+                    '"["',
+                    '"break"',
+                    '"continue"',
+                    '"{+"',
+                    "ID",
+                    "STR",
+                    '"{"',
+                    '"("',
+                    "CODE",
+                    '"{*"',
+                },
+            )
         return _base_
 
     def _code(self) -> str:
-        _code_: str
         # code -> CODE'c =«c.value.strip()»
+        _code_: str
         c = self.match("CODE")
         _code_ = c.value.strip()
         return _code_
 
     def _id(self) -> str:
-        _id_: str
         # id -> ID'id =«id.value»
+        _id_: str
         id = self.match("ID")
         _id_ = id.value
         return _id_
