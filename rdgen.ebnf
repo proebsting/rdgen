@@ -1,5 +1,5 @@
 << from grammar import TopCode, TopPragma, TopLevel, mkAlts,mkSequence,Production,Infinite,Value,Alts,Sym,Opt,Rep,Parens,Spec,Break,Expr,Continue,OnePlus,Sequence >>
-<< from scanner import Scanner, Token >>
+<< from scanner import Token >>
 
 %% spec.return = "Spec"
 spec:

@@ -9,7 +9,7 @@ import analysis
 
 def process_grammar(input: str) -> Tuple[Spec, analysis.State, Dict[str, Any]]:
     lexer = scanner.Scanner(input)
-    p = Parser(lexer)
+    p = Parser(lexer.tokens)
     spec: Spec = p.parse()
 
     concatenated = "\n".join(spec.pragmas)

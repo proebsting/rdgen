@@ -142,7 +142,7 @@ class Emitter:
 
     def emit_program(self) -> None:
         prologue: str = f"""
-from typing import NoReturn, Set
+from typing import NoReturn, Set, Iterable, Iterator
 
 class ParseErrorException(Exception):
     msg : str
@@ -157,21 +157,29 @@ class ParseErrorException(Exception):
         return f"Parse error {{self.msg}} at {{self.current}}:  Expected {{self.expected}}"
 
 class Parser:
-    def __init__(self, scanner:Scanner):
-        self.scanner:Scanner = scanner
+    scanner:Iterator[Token]
+    _current:Token
+
+    def __init__(self, scanner:Iterable[Token]):
+        self.scanner = iter(scanner)
+        self._current = next(self.scanner)
 
     def error(self, msg: str, expected: Set[str])->NoReturn:
-        current:Token = self.scanner.peek()
-        raise ParseErrorException(msg, current, expected)
+        raise ParseErrorException(msg, self._current, expected)
 
     def match(self, kind: str)->Token:
         if self.current() == kind:
-            return self.scanner.consume()
+            prev: Token = self._current
+            try:
+                self._current = next(self.scanner)
+            except StopIteration:
+                pass
+            return prev
         else:
             self.error("", {{kind}})
 
     def current(self)->str:
-        return self.scanner.peek().kind
+        return self._current.kind
 
     def parse(self):
         v = self.{self.prefix}{self.program.start_nonterminal}()
