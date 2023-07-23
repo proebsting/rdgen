@@ -9,10 +9,12 @@ import analysis
 
 def process_grammar(input: str) -> Tuple[Spec, analysis.State, Dict[str, Any]]:
     lexer = scanner.Scanner(input)
-    concatenated = "\n".join(lexer.pragmas)
-    toml: Dict[str, Any] = tomllib.loads(concatenated)
     p = Parser(lexer)
     spec: Spec = p.parse()
+
+    concatenated = "\n".join(spec.pragmas)
+    toml: Dict[str, Any] = tomllib.loads(concatenated)
+
     g: list[Production] = spec.productions
 
     state: analysis.State = analysis.analysis(g)

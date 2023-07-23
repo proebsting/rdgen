@@ -1,4 +1,12 @@
-from typing import NamedTuple, Optional, List, Callable, Any, Set, Dict
+from typing import (
+    NamedTuple,
+    Optional,
+    Callable,
+    Any,
+    TypeAlias,
+    Union,
+)
+from dataclasses import dataclass
 
 from ir import Stmt
 
@@ -7,7 +15,7 @@ from ir import Stmt
 
 class Target(NamedTuple):
     name: str
-    side_effect: List[Stmt]
+    side_effect: list[Stmt]
 
 
 class Expr:
@@ -88,13 +96,19 @@ class Seq0(Expr):
 
 
 class Sequence(Expr):
+    seq: Seq0
+    at_term: Optional[str]
+    tuple: Optional[list[str]]
+    dict: Optional[list[str]]
+    singleton: Optional[str]
+
     def __init__(self, seq: Seq0) -> None:
         self.seq: Seq0 = seq
 
         # possible inferred values for the sequence
         self.at_term: Optional[str] = None
-        self.tuple: Optional[List[str]] = None
-        self.dict: Optional[List[str]] = None
+        self.tuple: Optional[list[str]] = None
+        self.dict: Optional[list[str]] = None
         self.singleton: Optional[str] = None
 
     def visit(
@@ -115,9 +129,9 @@ class Sequence(Expr):
     def dump(self, indent: str) -> None:
         self.seq.dump(indent)
 
-    def filter(self, f: Callable[["Cons"], bool]) -> List["Cons"]:
+    def filter(self, f: Callable[["Cons"], bool]) -> list["Cons"]:
         s = self
-        L: List[Cons] = []
+        L: list[Cons] = []
         while isinstance(s, Cons):
             if f(s):
                 L.append(s)
@@ -125,7 +139,7 @@ class Sequence(Expr):
         return L
 
 
-def mkSequence(exprs: List[Expr]) -> Sequence:
+def mkSequence(exprs: list[Expr]) -> Sequence:
     if len(exprs) == 1 and isinstance(exprs[0], Sequence):
         return exprs[0]
     seq: Seq0 = Lambda()
@@ -156,6 +170,8 @@ class Lambda(Seq0):
 
 
 class Parens(Expr):
+    e: Expr
+
     def __init__(self, e: Expr):
         self.e = e
 
@@ -178,8 +194,11 @@ class Parens(Expr):
 
 
 class Alts(Expr):
+    vals: list["Sequence"]
+    warnings: list[str | None]
+
     def __init__(self, vals: list["Sequence"]):
-        self.vals: List["Sequence"] = vals
+        self.vals: list["Sequence"] = vals
         self.warnings: list[str | None]
 
     def visit(
@@ -203,7 +222,7 @@ class Alts(Expr):
             v.dump(indent + "  ")
 
 
-def mkAlts(exprs: List[Sequence]) -> Alts | Sequence:
+def mkAlts(exprs: list[Sequence]) -> Alts | Sequence:
     if len(exprs) == 1:
         return exprs[0]
     else:
@@ -221,7 +240,9 @@ def repr_seq(e: Expr, lis: list[str]):
 
 
 class Cons(Seq0):
-    dict: Optional[List[str]]
+    car: Expr
+    cdr: Seq0
+    dict: Optional[list[str]]
 
     def __init__(self, car: Expr, cdr: Seq0):
         self.car: Expr = car
@@ -250,6 +271,8 @@ class Cons(Seq0):
 
 
 class Sym(Expr):
+    value: str
+
     def __init__(self, value: str):
         self.value = value
 
@@ -273,6 +296,8 @@ class Sym(Expr):
 
 
 class Value(Expr):
+    value: str
+
     def __init__(self, value: str):
         self.value = value
 
@@ -321,6 +346,8 @@ class Rep(Loop):
 
 
 class Opt(Expr):
+    val: Expr
+
     def __init__(self, val: Expr):
         self.val = val
 
@@ -433,6 +460,9 @@ class Infinite(Loop):
 
 
 class Production:
+    lhs: str
+    rhs: Sequence
+
     def __init__(self, lhs: str, rhs: Expr):
         self.lhs: str = lhs
         self.rhs: Sequence = mkSequence([rhs])
@@ -458,10 +488,10 @@ class Production:
         print()
 
 
-def mkOr(prods: List[Production]) -> Sequence:
+def mkOr(prods: list[Production]) -> Sequence:
     if len(prods) == 1:
         return prods[0].rhs
-    alts: List[Sequence] = []
+    alts: list[Sequence] = []
     for p in prods:
         match p.rhs:
             case Sequence(seq=Cons(car=Alts(vals=vals), cdr=Lambda())):
@@ -475,7 +505,7 @@ from itertools import groupby
 
 
 def merge_duplicate_lhs(productions: list[Production]) -> list[Production]:
-    bylhs: Dict[str, List[Production]] = {
+    bylhs: dict[str, list[Production]] = {
         lhs: list(prods)
         for lhs, prods in groupby(productions, key=lambda p: p.lhs)
     }
@@ -485,10 +515,36 @@ def merge_duplicate_lhs(productions: list[Production]) -> list[Production]:
     return merged
 
 
+@dataclass
+class TopCode:
+    code: str
+
+
+@dataclass
+class TopPragma:
+    pragma: str
+
+
+TopLevel: TypeAlias = Union[Production, TopCode, TopPragma]
+
+
 class Spec:
-    def __init__(self, preamble: List[str], prods: list[Production]):
-        self.preamble = preamble
-        self.nonterms: Set[str] = set(p.lhs for p in prods)
+    preamble: list[str]
+    pragmas: list[str]
+    nonterms: set[str]
+    productions: list[Production]
+
+    def __init__(self, tops: list[TopLevel]):
+        self.preamble: list[str] = [
+            p.code for p in tops if isinstance(p, TopCode)
+        ]
+        self.pragmas: list[str] = [
+            p.pragma.strip() for p in tops if isinstance(p, TopPragma)
+        ]
+        prods: list[Production] = [
+            p for p in tops if isinstance(p, Production)
+        ]
+        self.nonterms: set[str] = set(p.lhs for p in prods)
         self.productions: list[Production] = merge_duplicate_lhs(prods)
 
     def dump(self, prefix: str):

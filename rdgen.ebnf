@@ -1,18 +1,20 @@
-<< from grammar import mkAlts,mkSequence,Production,Infinite,Value,Alts,Sym,Opt,Rep,Parens,Spec,Break,Expr,Continue,OnePlus,Sequence >>
+<< from grammar import TopCode, TopPragma, TopLevel, mkAlts,mkSequence,Production,Infinite,Value,Alts,Sym,Opt,Rep,Parens,Spec,Break,Expr,Continue,OnePlus,Sequence >>
 << from scanner import Scanner, Token >>
 
 %% spec.return = "Spec"
-%% spec.preamble = "list[str]"
 spec:
-    { code }'preamble
     grammar
-    = << Spec(preamble,grammar) >>
+    = << Spec(grammar) >>
     .
 
-%% grammar.return = "list[Production]"
-%% grammar.prods = "list[Production]"
+%% grammar.return = "list[TopLevel]"
+%% grammar.prods = "list[TopLevel]"
 grammar:
-    {+ production +}
+    { 
+          production 
+        | code =<<TopCode(code)>> 
+        | pragma =<<TopPragma(pragma)>> 
+    }
     .
 
 %% production.return = "Production"
@@ -69,3 +71,4 @@ base:
 code   : CODE'c   =<< c.value.strip() >> .        %% code.return = "str"
 id     : ID'id    =<< id.value        >> .        %% id.return  = "str"
 string : STR'id   =<< id.value        >> .        %% str.return = "str"
+pragma : PRAGMA'p =<< p.value         >> .        %% pragma.return = "str"
