@@ -142,26 +142,37 @@ class Emitter:
 
     def emit_program(self) -> None:
         prologue: str = f"""
-from typing import NoReturn, Iterable, Iterator, Callable
+from typing import NoReturn, Iterable, Iterator
+
+class ParseErrorException(Exception):
+    msg: str
+    token: Token
+    expected: set[str]
+
+    def __init__(self, msg: str, current: Token, expected: set[str]):
+        self.msg = msg
+        self.current = current
+        self.expected = expected
+
+    def __str__(self):
+        return f"Parse error {{self.msg}} at {{self.current}}:  Expected {{self.expected}}"
+
 
 
 class Parser:
     scanner:Iterator[Token]
-    handler:Callable[[Token, set[str], str], NoReturn]
     _current:Token
 
     def __init__(
         self,
         scanner: Iterable[Token],
-        handler: Callable[[Token, set[str], str], NoReturn],
     ):
         self.scanner: Iterator[Token] = iter(scanner)
-        self.handler: Callable[[Token, set[str], str], NoReturn] = handler
         self._current = next(self.scanner)
     
 
     def error(self, msg: str, expected: set[str]) -> NoReturn:
-        self.handler(self._current, expected, msg)
+        raise ParseErrorException(msg, self._current, expected)
 
     def match(self, kind: str)->Token:
         if self.current() == kind:
