@@ -21,33 +21,25 @@ from grammar import (
 )
 from scanner import Token
 
-from typing import NoReturn, Set, Iterable, Iterator
-
-
-class ParseErrorException(Exception):
-    msg: str
-    token: Token
-    expected: Set[str]
-
-    def __init__(self, msg: str, current: Token, expected: Set[str]):
-        self.msg = msg
-        self.current = current
-        self.expected = expected
-
-    def __str__(self):
-        return f"Parse error {self.msg} at {self.current}:  Expected {self.expected}"
+from typing import NoReturn, Iterable, Iterator, Callable
 
 
 class Parser:
     scanner: Iterator[Token]
+    handler: Callable[[Token, set[str], str], NoReturn]
     _current: Token
 
-    def __init__(self, scanner: Iterable[Token]):
-        self.scanner = iter(scanner)
+    def __init__(
+        self,
+        scanner: Iterable[Token],
+        handler: Callable[[Token, set[str], str], NoReturn],
+    ):
+        self.scanner: Iterator[Token] = iter(scanner)
+        self.handler: Callable[[Token, set[str], str], NoReturn] = handler
         self._current = next(self.scanner)
 
-    def error(self, msg: str, expected: Set[str]) -> NoReturn:
-        raise ParseErrorException(msg, self._current, expected)
+    def error(self, msg: str, expected: set[str]) -> NoReturn:
+        self.handler(self._current, expected, msg)
 
     def match(self, kind: str) -> Token:
         if self.current() == kind:
@@ -92,7 +84,7 @@ class Parser:
                 _grammar__element_ = TopPragma(pragma)
                 _grammar_.append(_grammar__element_)
             else:
-                self.error("syntax error", {"ID", "PRAGMA", "CODE"})
+                self.error("syntax error", {"CODE", "ID", "PRAGMA"})
         return _grammar_
 
     def _production(self) -> Production:
@@ -209,18 +201,7 @@ class Parser:
         else:
             self.error(
                 "syntax error",
-                {
-                    "STR",
-                    '"("',
-                    "ID",
-                    '"break"',
-                    '"{"',
-                    "CODE",
-                    '"continue"',
-                    '"{*"',
-                    '"["',
-                    '"{+"',
-                },
+                {"(", "[", "break", "continue", "{", "{*", "{+", "CODE", "ID", "STR"},
             )
         return _base_
 
