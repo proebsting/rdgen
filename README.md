@@ -1,4 +1,4 @@
-# rdgen: LL(1) EBNF Recursive Descent Parser Generator
+# rdgen: Retargetable LL(1) EBNF Recursive Descent Parser Generator
 
 This is a parser generator for LL(1) EBNF grammars. It generates a predictive recursive descent parser in Python 3.10.
 
