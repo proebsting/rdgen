@@ -2,7 +2,7 @@ from typing import Tuple, Dict, Any
 import tomllib
 
 import scanner
-from parse import Parser
+from .parse import Parser
 from grammar import Spec, Production
 import analysis
 

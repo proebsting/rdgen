@@ -66,8 +66,8 @@ class Parser:
     def current(self) -> str:
         return self._current.kind
 
-    def parse(self):
-        v = self._spec()
+    def parse(self) -> Spec:
+        v: Spec = self._spec()
         self.match("EOF")
         return v
 
