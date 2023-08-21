@@ -1,9 +1,9 @@
 import random
 from typing import List
 
-from grammar import Alts, Rep, Opt, Sym, Production, Expr, Cons
+from .grammar import Alts, Rep, Opt, Sym, Production, Expr, Cons
 
-from analysis import State
+from .analysis import State
 
 count = 0
 maximum = 100

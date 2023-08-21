@@ -1,4 +1,4 @@
-from grammar import (
+from .grammar import (
     TopCode,
     TopPragma,
     TopLevel,
@@ -19,7 +19,7 @@ from grammar import (
     OnePlus,
     Sequence,
 )
-from scanner import Token
+from .scanner import Token
 
 from typing import NoReturn, Iterable, Iterator
 

@@ -1,4 +1,4 @@
-from ir import *
+from .ir import *
 from typing import TextIO
 from collections import defaultdict
 
@@ -154,7 +154,7 @@ class ParseErrorException(Exception):
         self.current = current
         self.expected = expected
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Parse error {{self.msg}} at {{self.current}}:  Expected {{self.expected}}"
 
 

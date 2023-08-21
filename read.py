@@ -1,10 +1,10 @@
 from typing import Tuple, Dict, Any
 import tomllib
 
-import scanner
+from . import scanner
 from .parse import Parser
-from grammar import Spec, Production
-import analysis
+from .grammar import Spec, Production
+from . import analysis
 
 
 def process_grammar(input: str) -> Tuple[Spec, analysis.State, Dict[str, Any]]:

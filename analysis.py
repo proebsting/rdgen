@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Set
 from collections import defaultdict, Counter
 
-import grammar
-from react import Indirect, Constant, Gate, Undefined, Expr
+from . import grammar
+from .react import Indirect, Constant, Gate, Undefined, Expr
 
 
 class State:

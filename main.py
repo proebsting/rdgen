@@ -1,9 +1,9 @@
 import argparse
 
-import gen_random
-import ascending
-from create import create
-from sentences import gen_examples
+from . import gen_random
+from . import ascending
+from .create import create
+from .sentences import gen_examples
 
 
 def main():

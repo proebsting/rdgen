@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 
-from grammar import (
+from .grammar import (
     Alts,
     Rep,
     Opt,
@@ -21,9 +21,9 @@ from grammar import (
     Loop,
 )
 
-import ir
+from . import ir
 
-from analysis import State
+from .analysis import State
 
 
 def append(L: List[ir.Stmt], x: Optional[ir.Stmt]) -> None:
