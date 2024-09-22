@@ -2,7 +2,7 @@ import sys
 import json
 from typing import Any, TypeAlias, Union
 
-from grammar import (
+from .grammar import (
     Alts,
     Rep,
     Opt,
@@ -21,8 +21,8 @@ from grammar import (
     Infinite,
 )
 
-from analysis import State
-from read import process_grammar
+from .analysis import State
+from .read import process_grammar
 
 JSON: TypeAlias = Union[str, list["JSON"], dict[str, "JSON"]]
 
