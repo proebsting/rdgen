@@ -8,7 +8,7 @@ from typing import (
 )
 from dataclasses import dataclass
 
-from ir import Stmt
+from .ir import Stmt
 
 # from analysis import State
 

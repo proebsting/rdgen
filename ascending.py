@@ -1,9 +1,9 @@
 import heapq
 from typing import List, Callable, Tuple
 
-from grammar import Alts, Rep, Opt, Sym, Production, Cons, Expr
+from .grammar import Alts, Rep, Opt, Sym, Production, Cons, Expr
 
-from analysis import State
+from .analysis import State
 
 
 # MyHeap adapted from https://stackoverflow.com/questions/8875706/heapq-with-custom-compare-predicate

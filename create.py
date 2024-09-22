@@ -1,9 +1,9 @@
 import sys
 from typing import Any, Dict
 
-import infer
-from read import process_grammar
-import gen_ir
+from . import infer
+from .read import process_grammar
+from . import gen_ir
 
 
 def create(infile: str, outfile: str, verbose: bool, decorate: bool) -> None:
@@ -17,7 +17,7 @@ def create(infile: str, outfile: str, verbose: bool, decorate: bool) -> None:
     if decorate:
         inferer = infer.Inference(spec.productions, verbose)
         inferer.do_inference()
-    import emit_ir_python
+    from . import emit_ir_python
 
     ir_emitter = gen_ir.Emitter(spec, state, pragmas, verbose, decorate)
     generated = ir_emitter.emit_parser(state)

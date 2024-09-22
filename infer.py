@@ -1,6 +1,6 @@
 from typing import Optional, List, Set
 
-from grammar import (
+from .grammar import (
     Target,
     Alts,
     Opt,
@@ -17,7 +17,7 @@ from grammar import (
     Loop,
 )
 
-import ir
+from . import ir
 
 
 class Inference:

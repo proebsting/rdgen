@@ -3,7 +3,7 @@ import sys
 import json
 
 
-from read import process_grammar
+from .read import process_grammar
 
 
 def gen_examples(
