@@ -94,7 +94,7 @@ class InfiniteDict(ExprDict):
 
 
 class AnalysisDict(TypedDict):
-    nullable: str
+    nullable: bool
     first: list[str]
     follow: list[str]
     predict: list[str]
@@ -125,7 +125,7 @@ class Emitter:
 
     def get_analysis(self, e: Expr) -> AnalysisDict:
         return {
-            "nullable": str(e.nullable),
+            "nullable": e.nullable,
             "first": list(e.first),
             "follow": list(e.follow),
             "predict": list(e.predict),
