@@ -4,11 +4,14 @@ import gen_random
 import ascending
 from create import create
 from sentences import gen_examples
+from gen_json import analysis
 
 
 def main():
     args = parse_args()
     match args.command:
+        case "analysis":
+            analysis(args.input, args.output)
         case "create":
             create(
                 args.input,
@@ -31,6 +34,12 @@ def main():
 def parse_args():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    analysis = subparsers.add_parser(
+        "analysis", help="create JSON containing analysis"
+    )
+    analysis.add_argument("--input", type=str, help="input file")
+    analysis.add_argument("--output", type=str, help="output file")
 
     create = subparsers.add_parser("create", help="create a parser")
     create.add_argument("--input", type=str, help="input file")
