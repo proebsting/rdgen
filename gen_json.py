@@ -97,7 +97,7 @@ class AnalysisDict(TypedDict):
     nullable: bool
     first: list[str]
     follow: list[str]
-    predict: list[str]
+    predict: NotRequired[list[str]]
 
 
 class ProdDict(TypedDict):
@@ -111,6 +111,7 @@ class TotalDict(TypedDict):
     pragmas: dict[str, Any]
     terminals: list[str]
     nonterminals: list[str]
+    analysis: dict[str, AnalysisDict]
     start: str
 
 
@@ -283,12 +284,20 @@ def analysis(infile: str, outfile: str) -> None:
 
     emitter = Emitter(spec, state)
     analyzed: list[ProdDict] = emitter.emit(state)
+    ntanalysis: dict[str, AnalysisDict] = {}
+    for nt in state.nonterms:
+        ntanalysis[nt] = {
+            "nullable": state.syms_nullable[nt].get_value(),
+            "first": sorted(list(state.syms_first[nt].get_value())),
+            "follow": sorted(list(state.syms_follow[nt].get_value())),
+        }
     retval: TotalDict = {
         "spec": analyzed,
         "pragmas": pragmas,
         "terminals": sorted(list(state.terms)),
         "nonterminals": sorted(list(state.nonterms)),
         "start": spec.productions[0].lhs,
+        "analysis": ntanalysis,
     }
     if outfile:
         with open(outfile, "w") as f:
