@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import (
     NamedTuple,
     Optional,
@@ -41,23 +42,17 @@ class Expr:
         post: Callable[["Expr", Any], None],
         arg: Any,
     ) -> None:
-        raise NotImplementedError(
-            f"{self.__class__.__name__}.visit() not implemented"
-        )
+        raise NotImplementedError(f"{self.__class__.__name__}.visit() not implemented")
 
     def __repr__(self) -> str:
         s = self.basic_repr()
         return self.decorate(s)
 
     def basic_repr(self) -> str:
-        assert False, (
-            "Expr.basic_repr() not implemented for " + self.__class__.__name__
-        )
+        assert False, "Expr.basic_repr() not implemented for " + self.__class__.__name__
 
     def dump(self, indent: str) -> None:
-        assert False, (
-            "Expr.dump() not implemented for " + self.__class__.__name__
-        )
+        assert False, "Expr.dump() not implemented for " + self.__class__.__name__
 
     def decorate(self, s: str) -> str:
         if self.keep:
@@ -501,14 +496,16 @@ def mkOr(prods: list[Production]) -> Sequence:
     return mkSequence([Alts(alts)])
 
 
-from itertools import groupby
+# from itertools import groupby
 
 
 def merge_duplicate_lhs(productions: list[Production]) -> list[Production]:
-    bylhs: dict[str, list[Production]] = {
-        lhs: list(prods)
-        for lhs, prods in groupby(productions, key=lambda p: p.lhs)
-    }
+    # bylhs: dict[str, list[Production]] = {
+    #     lhs: list(prods) for lhs, prods in groupby(productions, key=lambda p: p.lhs)
+    # }
+    bylhs: dict[str, list[Production]] = defaultdict(list)
+    for p in productions:
+        bylhs[p.lhs].append(p)
     merged: list[Production] = [
         Production(lhs, mkOr(prods)) for lhs, prods in bylhs.items()
     ]
@@ -535,15 +532,11 @@ class Spec:
     productions: list[Production]
 
     def __init__(self, tops: list[TopLevel]):
-        self.preamble: list[str] = [
-            p.code for p in tops if isinstance(p, TopCode)
-        ]
+        self.preamble: list[str] = [p.code for p in tops if isinstance(p, TopCode)]
         self.pragmas: list[str] = [
             p.pragma.strip() for p in tops if isinstance(p, TopPragma)
         ]
-        prods: list[Production] = [
-            p for p in tops if isinstance(p, Production)
-        ]
+        prods: list[Production] = [p for p in tops if isinstance(p, Production)]
         self.nonterms: set[str] = set(p.lhs for p in prods)
         self.productions: list[Production] = merge_duplicate_lhs(prods)
 
