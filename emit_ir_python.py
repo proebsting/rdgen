@@ -90,9 +90,7 @@ class Emitter:
                     test = "elif"
                     self.emit_stmts(g.body, indent1)
                 if error:
-                    all: set[str] = set(
-                        x for g in guardeds for x in g.guard.predict
-                    )
+                    all: set[str] = set(x for g in guardeds for x in g.guard.predict)
                     self.emit(f"{indent}else:")
                     self.emit(
                         f"{indent1}self.error({repr(error.message)}, {set_repr(all)})"
@@ -125,9 +123,7 @@ class Emitter:
 
     def function(self, f: Function) -> None:
         rettype: str = (
-            self.types[f.name]["return"]
-            if "return" in self.types[f.name]
-            else ""
+            self.types[f.name]["return"] if "return" in self.types[f.name] else ""
         )
         retdecl: str = f"->{rettype}" if rettype else ""
         self.emit(f"{self.indent}def {self.prefix}{f.name}(self){retdecl}:")
@@ -141,6 +137,13 @@ class Emitter:
         self.emit()
 
     def emit_program(self) -> None:
+        ssym: str = self.program.start_nonterminal
+        rettype: str = (
+            self.types[ssym]["return"] if "return" in self.types[ssym] else ""
+        )
+        retsuffix: str = f"->{rettype}" if rettype else ""
+        varsuffix: str = f":{rettype}" if rettype else ""
+
         prologue: str = f"""
 from typing import NoReturn, Iterable, Iterator
 
@@ -188,8 +191,8 @@ class Parser:
     def current(self)->str:
         return self._current.kind
 
-    def parse(self):
-        v = self.{self.prefix}{self.program.start_nonterminal}()
+    def parse(self) {retsuffix}:
+        v {varsuffix}= self.{self.prefix}{self.program.start_nonterminal}()
         self.match("EOF")
         return v
 """
