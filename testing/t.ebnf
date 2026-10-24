@@ -1,0 +1,68 @@
+<< from grammar import Production,Alts,Seq,Sym,Opt,Rep,Expr,Parens,Lambda,Cons,Spec,Break,Continue,OnePlus >>
+
+spec:
+    { code }'preamble
+    grammar
+    = << Spec(preamble,grammar) >>
+    .
+
+grammar:
+    production'p 
+    { production }'L 
+    = << [p]+L >> 
+    .
+
+production: 
+    id
+    ":" 
+    alternation
+    "." 
+    = << Production(id, alternation) >> 
+    .
+
+alternation: 
+    sequence'x 
+    { "|" @sequence }'L
+    =<< Alts([x]+L) if L else x >>
+    .
+
+sequence: 
+    { code }'prologue 
+    term't
+    << ret = last = Cons(t, Lambda()) >>
+    << ret.prologue = prologue >>
+    {
+        term't              
+        << last.cdr = Cons(t, last.cdr) >> 
+        << last = last.cdr              >> 
+    } !
+    [ "=" @code ]'c       << ret.code = c or None >>
+    = <<ret>> 
+    .
+
+term: 
+    [ "@" ]     'at 
+    @base
+    [ "!" ]     'simple
+    [ "'" @id ] 'name 
+    { code }    'stmts
+    << base.keep   = at is not None       >>
+    << base.simple = simple is not None   >>
+    << base.name   = name or None         >>
+    << base.stmts  = stmts                >>
+    .
+
+base: 
+    "(" alternation ")"     =<< Parens(alternation)  >>
+    | "{" alternation "}"   =<< Rep(alternation)     >>
+    | "[" alternation "]"   =<< Opt(alternation)     >>
+    | "{+" alternation "+}" =<< OnePlus(alternation) >>
+    | id                    =<< Sym(id)    >>
+    | str                   =<< Sym(str)   >>
+    | "break"               =<< Break()    >>
+    | "continue"            =<< Continue() >>
+    .
+
+code: CODE'c   =<< c.value.strip() >> .
+id  : ID'id    =<< id.value        >> .
+str : STR'id   =<< id.value        >> .

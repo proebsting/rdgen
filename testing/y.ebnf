@@ -1,0 +1,47 @@
+spec:
+    { code }
+    grammar
+    .
+
+grammar:
+    {+ production +}
+    .
+
+production: 
+    id
+    ":" 
+    alternation
+    "." 
+    .
+
+alternation: 
+    {* sequence [break] "|" *}
+    .
+
+sequence: 
+    {+ term +}
+    .
+
+term: 
+    [ "=" ]     
+    base        
+    [ "!" ]     
+    [ "'" id ] 
+    .
+
+base:
+    "(" alternation ")"     
+    | "{" alternation "}"  
+    | "[" alternation "]"   
+    | "{+" alternation "+}"
+    | "{*" alternation "*}"
+    | id                   
+    | string              
+    | code               
+    | "break"           
+    | "continue"       
+    .
+
+code   : CODE   .
+id     : ID    .
+string : STR  .

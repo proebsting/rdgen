@@ -1,0 +1,149 @@
+program: expr_list .
+
+expr: expr_if_else | expr_let | expr_or | expr_lambda .
+
+expr_or:
+    expr_and'e {
+        "or"'operator
+        expr_and'operand <<e = BinaryOp(e, operator, operand)>>
+    } = <<e>>
+    .
+
+expr_and:
+    expr_comparison'e {
+        "and"'operator
+        expr_comparison'operand <<e = BinaryOp(e, operator, operand)>>
+    } = <<e>>
+    .
+
+expr_comparison:
+    expr_sum'e {
+        ("==" | "!=" | "<" | ">" | "<=" | ">=")'operator
+        expr_sum'operand <<e = BinaryOp(e, operator, operand)>>
+    } = <<e>>
+    .
+
+expr_sum:
+    expr_factor'e {
+        ("+" | "-")'operator
+        expr_factor'operand <<e = BinaryOp(e, operator, operand)>>
+    } = <<e>>
+    .
+
+expr_factor:
+    expr_exponent'e {
+        ("*" | "/" | "%")'operator
+        expr_exponent'operand <<e = BinaryOp(e, operator, operand)>>
+    } = <<e>>
+    .
+
+expr_exponent:
+    expr_main'e
+    [
+        "^"'operator
+        expr_exponent'right <<e = BinaryOp(e, operator, right)>>
+    ] = <<e>>
+    .
+
+expr_lambda:
+    "|"
+    <<params = []>>
+    [
+        ID'name <<params = [name]>>
+        {
+            ","
+            ID'name <<params.append(name)>>
+        }
+    ]
+    "|" "{" expr_list'body "}"
+    = <<Lambda(params, body)>>
+    .
+
+expr_let: LET ID'name ["=" expr'value]'assignment = <<Let(name, assignment["value"])>> .
+
+expr_parens:
+    "("
+    expr'e
+    ")"
+    =<<e>>
+    .
+
+array_literal:
+    <<elements = []>>
+    "["
+        [
+            expr'e <<elements.append(e)>>
+            {
+                ","
+                expr'e <<elements.append(e)>>
+            }
+        ]
+    "]"
+    =<<Array(elements)>>
+    .
+
+expr_if_else:
+    IF expr'condition
+    "{"
+    expr_list'true_branch
+    "}"
+    ELSE
+    (
+        expr_if_else'false_branch
+        |
+        "{"
+            expr_list'false_branch
+        "}"
+    ) = <<If(condition, true_branch, false_branch)>>
+    .
+
+literal: NUMBER'n =<<Number(n)>> | STR's =<<String(s)>> | array_literal .
+access:
+    ID'name
+    <<args = None>>
+    <<index = None>>
+    [
+        <<args = []>>
+        "("
+        [
+            expr'a <<args.append(a)>>
+            {
+                ","
+                expr'a <<args.append(a)>>
+            }
+        ]
+        ")"
+    ]
+    [
+        "["
+            expr'i <<index = i>>
+        "]"
+    ]
+    <<base = Call(name, args) if args is not None else VariableAccess(name)>>
+    = <<ArrayAccess(base, index) if index is not None else base>>
+    .
+
+expr_list: [
+        expr'head
+        { ";"'semi
+            [ expr ]'expr
+        }'tail
+    ] = <<ExprList([head] + [t["expr"] for t in tail if t["expr"] is not None], len(tail) > 0 and tail[-1]["expr"] is None)>>
+    .
+
+
+expr_main: base { arglist | array_accessor } .
+arglist:         "("
+        [
+            expr
+            {
+                ","
+                expr
+            }
+        ]
+        ")" .
+array_accessor: "[" expr "]" .
+base: literal | ID | expr_parens .
+
+
+a: b [c] {c} (c|c).

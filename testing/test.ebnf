@@ -1,0 +1,3 @@
+S: inf | one .
+inf: {* =x [break] "," *} .
+one: {+ y +} .

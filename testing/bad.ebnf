@@ -1,0 +1,44 @@
+program : { func_declaration } .
+
+func_declaration : "func" ID "(" [ func_parameters ] ")" [ type_annotation ] compound_statement .
+func_parameters : ID type_annotation { "," ID type_annotation } .
+type_annotation : ":" type .
+type : { "[" [ expr ] "]" } primitive_type .
+primitive_type : "int" | "bool" .
+
+
+statement : if_statement | while_statement | assignment_statement | compound_statement
+        | call_statement | print_statement .
+
+if_statement : "if" expr compound_statement [ "else" compound_statement ] .
+
+while_statement : "while" expr compound_statement .
+
+assignment_statement : designator "=" expr .
+
+compound_statement : "{" { var_declaration } { statement } [ return_statement ] "}" .
+var_declaration : "var" ID ":" type .
+return_statement : "return" [ expr ] .
+
+call_statement : "call" func_call .
+func_call : ID func_args .
+func_args : "(" [ expr { "," expr } ] ")" .
+
+print_statement : "print" ( expr | "(" expr ")" ) .
+
+
+expr : expr1 { "or" expr1 } .
+expr1 : expr2 { "and" expr2 } .
+expr2 : expr3 [ comparison_op expr3 ] .
+expr3 : expr4 { add_op expr4 } .
+expr4 : expr5 { mult_op expr5 } .
+expr5 : { "-" | "not" } expr6 .
+expr6 : designator | "(" expr ")" | INT | bool_literal .
+
+designator : ID [ func_args ] { selector } .
+selector : "[" expr "]" .
+
+comparison_op : "<" | "<=" | "==" | "!=" | ">" | ">=" .
+add_op : "+" | "-" .
+mult_op : "*" | "/" .
+bool_literal : "true"  | "false" .
